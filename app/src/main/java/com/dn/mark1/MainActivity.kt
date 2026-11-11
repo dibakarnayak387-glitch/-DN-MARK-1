@@ -181,17 +181,23 @@ if (command == lastOfflineCommand &&
 lastOfflineCommand = command
 lastOfflineCommandAt = now
 
-if (!jarvisWakeDetected) {
-    val wake = command.lowercase(Locale.ROOT)
+val normalized = command.lowercase(Locale.ROOT)
 
-    if (wake.contains("jarvis") ||
-        wake.contains("जार्विस") ||
-        wake.contains("जारविस")) {
+val isWake = normalized.contains("jarvis") ||
+    normalized.contains("जार्विस") ||
+    normalized.contains("जारविस") ||
+    normalized.contains("जर्विस")
 
-        jarvisWakeDetected = true
-        speak("जी, मैं सुन रहा हूँ।")
-        updateStatus("JARVIS ACTIVATED - SPEAK COMMAND")
-    } else {
+if (isWake) {
+    jarvisWakeDetected = true
+    speak("जी, मैं सुन रहा हूँ।")
+    updateStatus("JARVIS READY - SPEAK COMMAND")
+} else if (jarvisWakeDetected) {
+    handleCommand(command)
+    updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
+} else {
+    updateStatus("SAY JARVIS TO ACTIVATE")
+}
         updateStatus("SAY JARVIS TO ACTIVATE")
     }
 
@@ -424,11 +430,13 @@ private fun handleCommand(command: String) {
 
     when {
         input.contains("whatsapp") ||
-        input.contains("व्हाट्सएप") ||
-        input.contains("वाट्सएप") ||
-        input.contains("वॉट्सएप") ||
-        input.contains("व्हाट्स एप") ||
-        input.contains("वाट्स एप") -> {
+        input.contains("whats app") ||
+        input.contains("व्हाट्स") ||
+        input.contains("वाट्स") ||
+        input.contains("वॉट्स") ||
+        input.contains("व्हाट्सअप") ||
+        input.contains("वाट्सअप") ||
+        input.contains("वॉट्सअप")
             val launch = packageManager
                 .getLaunchIntentForPackage("com.whatsapp")
 
