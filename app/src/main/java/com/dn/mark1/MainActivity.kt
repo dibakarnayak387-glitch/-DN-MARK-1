@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private var tts: TextToSpeech? = null
     private var statusView: TextView? = null
     private var offlineEngine: OfflineVoiceEngine? = null
+    private var jarvisWakeDetected = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
