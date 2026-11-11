@@ -171,6 +171,15 @@ offlineButton = TextView(this).apply {
                 { command ->
                     runOnUiThread {
                         updateStatus("YOU: $command")
+                        val now = System.currentTimeMillis()
+
+if (command == lastOfflineCommand &&
+    now - lastOfflineCommandAt < 1500L) {
+    return@runOnUiThread
+}
+
+lastOfflineCommand = command
+lastOfflineCommandAt = now
 
 if (!jarvisWakeDetected) {
     val wake = command.lowercase(Locale.ROOT)
