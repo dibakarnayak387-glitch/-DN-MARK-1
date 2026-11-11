@@ -213,38 +213,75 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun handleCommand(command: String) {
-        val input = command.lowercase(Locale.ROOT)
+    
+private fun handleCommand(command: String) {
+    val input = command.lowercase(Locale.ROOT)
 
-        when {
-            input.contains("whatsapp") ||
-            input.contains("व्हाट्सएप") -> {
-                val launch = packageManager
-                    .getLaunchIntentForPackage("com.whatsapp")
+    val pattern = Regex(
+        """(-?\d+(?:\.\d+)?)\s*(\+|-|\*|/|प्लस|जोड़|जमा|माइनस|घटा|गुणा|भाग|plus|minus|times|multiply|divide)\s*(-?\d+(?:\.\d+)?)""",
+        RegexOption.IGNORE_CASE
+    )
 
-                if (launch != null) {
-                    speak("Opening WhatsApp")
-                    startActivity(launch)
-                    updateStatus("WHATSAPP OPENED")
-                } else {
-                    speak("WhatsApp is not installed")
-                    updateStatus("WHATSAPP NOT FOUND")
-                }
-            }
+    val match = pattern.find(input)
 
-            input.contains("hello") ||
-            input.contains("नमस्ते") ||
-            input.contains("हेलो") -> {
-                speak("नमस्ते! मैं D N MARK 1 हूँ।")
-                updateStatus("COMMAND COMPLETED")
-            }
+    if (match != null) {
+        val a = match.groupValues[1].toDouble()
+        val op = match.groupValues[2]
+        val b = match.groupValues[3].toDouble()
 
-            else -> {
-                speak("मैंने आपकी बात सुनी। यह कमांड अभी उपलब्ध नहीं है।")
-                updateStatus("COMMAND RECEIVED")
+        if ((op == "/" || op == "भाग" || op == "divide") && b == 0.0) {
+            speak("शून्य से भाग नहीं दे सकते।")
+            return
+        }
+
+        val result = when (op) {
+            "+", "प्लस", "जोड़", "जमा", "plus" -> a + b
+            "-", "माइनस", "घटा", "minus" -> a - b
+            "*", "गुणा", "times", "multiply" -> a * b
+            "/", "भाग", "divide" -> a / b
+            else -> return
+        }
+
+        val answer = if (result % 1.0 == 0.0) {
+            result.toLong().toString()
+        } else {
+            result.toString()
+        }
+
+        speak("जवाब है $answer")
+        updateStatus("CALCULATION COMPLETE")
+        return
+    }
+
+    when {
+        input.contains("whatsapp") ||
+        input.contains("व्हाट्सएप") -> {
+            val launch = packageManager
+                .getLaunchIntentForPackage("com.whatsapp")
+
+            if (launch != null) {
+                speak("Opening WhatsApp")
+                startActivity(launch)
+                updateStatus("WHATSAPP OPENED")
+            } else {
+                speak("WhatsApp is not installed")
             }
         }
+
+        input.contains("hello") ||
+        input.contains("नमस्ते") ||
+        input.contains("हेलो") -> {
+            speak("नमस्ते! मैं D N MARK 1 हूँ।")
+            updateStatus("COMMAND COMPLETED")
+        }
+
+        else -> {
+            speak("मैंने आपकी बात सुनी। यह कमांड अभी उपलब्ध नहीं है।")
+            updateStatus("COMMAND RECEIVED")
+        }
     }
+}
+
 
     private fun speak(message: String) {
         tts?.speak(
