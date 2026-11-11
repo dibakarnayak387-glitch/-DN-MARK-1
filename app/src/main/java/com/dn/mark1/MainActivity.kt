@@ -124,6 +124,81 @@ class MainActivity : Activity() {
 
 root.addView(downloadButton)
 root.addView(space(12))
+var offlineListening = false
+lateinit var offlineButton: TextView
+
+offlineButton = TextView(this).apply {
+    text = "START OFFLINE VOICE"
+    textSize = 14f
+    setTextColor(cyan)
+    gravity = Gravity.CENTER
+    setPadding(dp(12), dp(16), dp(12), dp(16))
+    background = panel()
+
+    setOnClickListener {
+        if (offlineListening) {
+            offlineEngine?.stopListening()
+            offlineListening = false
+            text = "START OFFLINE VOICE"
+            updateStatus("OFFLINE VOICE STOPPED")
+            return@setOnClickListener
+        }
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                arrayOf(Manifest.permission.RECORD_AUDIO), 102
+            )
+            return@setOnClickListener
+        }
+
+        val engine = offlineEngine
+
+        if (engine != null) {
+            offlineListening = true
+            text = "STOP OFFLINE VOICE"
+            updateStatus("OFFLINE LISTENING...")
+            engine.startListening()
+        } else {
+            isEnabled = false
+            text = "LOADING HINDI ENGINE..."
+
+            val newEngine = OfflineVoiceEngine(
+                this@MainActivity,
+                { command ->
+                    runOnUiThread {
+                        updateStatus("YOU: $command")
+                        handleCommand(command)
+                    }
+                },
+                { error ->
+                    runOnUiThread {
+                        updateStatus("OFFLINE ERROR: $error")
+                        offlineListening = false
+                        isEnabled = true
+                        text = "START OFFLINE VOICE"
+                    }
+                }
+            )
+
+            offlineEngine = newEngine
+
+            newEngine.load(
+                {
+                    isEnabled = true
+                    offlineListening = true
+                    text = "STOP OFFLINE VOICE"
+                    updateStatus("OFFLINE LISTENING...")
+                    newEngine.startListening()
+                }
+            )
+        }
+    }
+}
+
+root.addView(offlineButton)
+root.addView(space(12))
+
         root.addView(space(25))
         root.addView(text("COMMAND CENTER", 17f, white, true))
         root.addView(space(12))
