@@ -472,6 +472,9 @@ private fun handleCommand(command: String) {
             updateStatus("MICROPHONE PERMISSION DENIED")
         }
     }
+    else if (requestCode == 102) {
+    updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
+    }
 
     override fun onDestroy() {
         recognizer?.destroy()
