@@ -33,7 +33,7 @@ jobs:
       - name: Build APK
         run: |
           gradle wrapper --gradle-version 8.9
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
