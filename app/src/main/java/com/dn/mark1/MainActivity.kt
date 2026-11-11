@@ -318,7 +318,8 @@ root.addView(space(12))
 
                         if (command != null) {
                             updateStatus("YOU: $command")
-
+                            speak("आपने कहा $command")
+                            
 if (!jarvisWakeDetected) {
     val wake = command.lowercase(Locale.ROOT)
 
