@@ -14,6 +14,10 @@
         <activity
             android:name="com.dn.mark1.MainActivity"
             android:exported="true">
+            <service
+    android:name=".JarvisVoiceService"
+    android:exported="false"
+    android:foregroundServiceType="microphone" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
