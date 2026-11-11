@@ -185,8 +185,19 @@ if (!jarvisWakeDetected) {
     }
 
 } else {
-    jarvisWakeDetected = false
-    handleCommand(command)
+    val wake = command.lowercase(Locale.ROOT)
+
+    if (wake.contains("jarvis") ||
+        wake.contains("जार्विस") ||
+        wake.contains("जारविस")) {
+
+        speak("जी, मैं सुन रहा हूँ।")
+        updateStatus("JARVIS READY - SPEAK COMMAND")
+
+    } else {
+        jarvisWakeDetected = false
+        handleCommand(command)
+    }
 }
                     }
                 },
