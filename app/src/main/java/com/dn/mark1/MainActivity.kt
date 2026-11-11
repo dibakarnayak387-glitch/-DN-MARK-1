@@ -4,21 +4,196 @@ package com.dn.mark1
 import android.app.Activity
 import android.os.Bundle
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 class MainActivity : Activity() {
+
+    private val cyan = Color.rgb(0, 220, 255)
+    private val white = Color.WHITE
+    private val muted = Color.rgb(145, 180, 205)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val screen = TextView(this).apply {
-            text = "D.N. MARK 1\n\nSYSTEM ONLINE\n\nHello! I am your AI Assistant."
-            textSize = 24f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(10, 15, 30))
+        window.statusBarColor = Color.rgb(4, 12, 28)
+        window.navigationBarColor = Color.rgb(4, 12, 28)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(18), dp(20), dp(20))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(
+                    Color.rgb(4, 12, 30),
+                    Color.rgb(8, 25, 52),
+                    Color.rgb(3, 10, 24)
+                )
+            )
         }
 
-        setContentView(screen)
+        val scroll = ScrollView(this)
+        scroll.addView(root)
+
+        root.addView(text("D.N.  MARK  1", 27f, cyan, true))
+        root.addView(text("PERSONAL AI ASSISTANT", 11f, muted, true))
+        root.addView(space(18))
+
+        val status = TextView(this).apply {
+            text = "●  SYSTEM ONLINE     |     VERSION 1.0"
+            textSize = 11f
+            setTextColor(cyan)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = panel()
+        }
+        root.addView(status)
+        root.addView(space(24))
+
+        root.addView(text("YOUR AI CORE", 13f, muted, true))
+
+        val core = CoreView()
+        root.addView(core, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(230)
+        ))
+
+        root.addView(text("TAP TO SPEAK", 14f, cyan, true).apply {
+            gravity = Gravity.CENTER
+        })
+        root.addView(space(25))
+
+        root.addView(text("COMMAND CENTER", 17f, white, true))
+        root.addView(space(12))
+
+        val features = listOf(
+            "🎙  VOICE ASSISTANT" to "Talk with MARK 1",
+            "✦  AI CHAT" to "Smart conversation",
+            "☁  WEATHER" to "Weather information",
+            "▣  BATTERY" to "Phone battery status",
+            "◉  WHATSAPP" to "Open WhatsApp",
+            "◎  AI MEMORY" to "Assistant memory",
+            "🌐  LANGUAGE" to "Hindi • Odia • English",
+            "⚙  SETTINGS" to "System preferences"
+        )
+
+        for (i in features.indices step 2) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+            row.addView(featureCard(features[i].first, features[i].second),
+                LinearLayout.LayoutParams(0, dp(105), 1f))
+
+            row.addView(spaceWidth(10))
+
+            if (i + 1 < features.size) {
+                row.addView(featureCard(features[i + 1].first, features[i + 1].second),
+                    LinearLayout.LayoutParams(0, dp(105), 1f))
+            }
+
+            root.addView(row)
+            root.addView(space(10))
+        }
+
+        root.addView(space(12))
+        root.addView(text("D.N. MARK 1  •  FUTURE IS HERE", 11f, muted, true).apply {
+            gravity = Gravity.CENTER
+        })
+
+        setContentView(scroll)
+    }
+
+    private fun featureCard(title: String, subtitle: String): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(10), dp(8), dp(10))
+            background = panel()
+        }
+
+        card.addView(text(title, 13f, cyan, true))
+        card.addView(space(7))
+        card.addView(text(subtitle, 11f, muted, false))
+
+        return card
+    }
+
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean
+    ): TextView {
+        return TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(color)
+            typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+        }
+    }
+
+    private fun panel(): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(Color.rgb(10, 31, 57))
+            setStroke(dp(1), Color.rgb(0, 130, 180))
+            cornerRadius = dp(13).toFloat()
+        }
+    }
+
+    private fun space(height: Int): View =
+        View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, dp(height))
+        }
+
+    private fun spaceWidth(width: Int): View =
+        View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(width), 1)
+        }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
+    inner class CoreView : View(this@MainActivity) {
+
+        private val paint = android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG
+        )
+
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            super.onDraw(canvas)
+
+            val x = width / 2f
+            val y = height / 2f
+            val radius = dp(76).toFloat()
+
+            paint.style = android.graphics.Paint.Style.STROKE
+            paint.strokeWidth = dp(2).toFloat()
+            paint.color = cyan
+            canvas.drawCircle(x, y, radius, paint)
+
+            paint.strokeWidth = dp(1).toFloat()
+            paint.alpha = 130
+            canvas.drawCircle(x, y, radius + dp(10), paint)
+            canvas.drawCircle(x, y, radius - dp(10), paint)
+
+            paint.style = android.graphics.Paint.Style.FILL
+            paint.alpha = 255
+            paint.color = Color.rgb(10, 75, 115)
+            canvas.drawCircle(x, y, radius - dp(18), paint)
+
+            paint.color = cyan
+            paint.textAlign = android.graphics.Paint.Align.CENTER
+            paint.typeface = Typeface.DEFAULT_BOLD
+            paint.textSize = dp(24).toFloat()
+            canvas.drawText("MARK 1", x, y + dp(8), paint)
+
+            paint.textSize = dp(10).toFloat()
+            canvas.drawText("AI CORE", x, y + dp(28), paint)
+        }
     }
 }
