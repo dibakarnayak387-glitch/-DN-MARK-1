@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var statusView: TextView? = null
-
+    private var offlineEngine: OfflineVoiceEngine? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
