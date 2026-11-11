@@ -89,7 +89,41 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setOnClickListener { startListening() }
         })
+        val downloadButton = TextView(this).apply {
+    text = "DOWNLOAD HINDI VOICE MODEL"
+    textSize = 14f
+    setTextColor(cyan)
+    gravity = Gravity.CENTER
+    setPadding(dp(12), dp(16), dp(12), dp(16))
+    background = panel()
 
+    setOnClickListener {
+        isEnabled = false
+        text = "DOWNLOADING... 0%"
+
+        ModelDownloader.download(
+            this@MainActivity,
+            { progress ->
+                text = "DOWNLOADING... $progress%"
+            },
+            { result ->
+                isEnabled = true
+
+                if (result.isSuccess) {
+                    text = "HINDI MODEL READY"
+                    updateStatus("HINDI MODEL INSTALLED")
+                    speak("Hindi voice model ready")
+                } else {
+                    text = "DOWNLOAD FAILED - RETRY"
+                    updateStatus("MODEL DOWNLOAD FAILED")
+                }
+            }
+        )
+    }
+}
+
+root.addView(downloadButton)
+root.addView(space(12))
         root.addView(space(25))
         root.addView(text("COMMAND CENTER", 17f, white, true))
         root.addView(space(12))
