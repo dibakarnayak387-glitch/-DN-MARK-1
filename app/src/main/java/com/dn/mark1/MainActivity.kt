@@ -412,7 +412,11 @@ private fun handleCommand(command: String) {
 
     when {
         input.contains("whatsapp") ||
-        input.contains("व्हाट्सएप") -> {
+        input.contains("व्हाट्सएप") ||
+        input.contains("वाट्सएप") ||
+        input.contains("वॉट्सएप") ||
+        input.contains("व्हाट्स एप") ||
+        input.contains("वाट्स एप") -> {
             val launch = packageManager
                 .getLaunchIntentForPackage("com.whatsapp")
 
