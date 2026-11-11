@@ -92,10 +92,7 @@ class OfflineVoiceEngine(
         }
     }
 
-    override fun onResult(hypothesis: String) {
-        val result = readText(hypothesis)
-        if (result.isNotBlank()) onText(result)
-    }
+    override fun onResult(hypothesis: String) {}
 
     override fun onFinalResult(hypothesis: String) {
         val result = readText(hypothesis)
