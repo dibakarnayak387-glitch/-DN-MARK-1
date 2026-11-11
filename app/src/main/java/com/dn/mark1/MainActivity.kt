@@ -476,14 +476,20 @@ override fun onRequestPermissionsResult(
     }
 }
   
-   override fun onDestroy() {
-        recognizer?.destroy()
-        recognizer = null
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-        super.onDestroy()
-    }
+   
+override fun onDestroy() {
+    offlineEngine?.stopListening()
+    offlineEngine = null
+
+    recognizer?.destroy()
+    recognizer = null
+
+    tts?.stop()
+    tts?.shutdown()
+    tts = null
+
+    super.onDestroy()
+}
 
     inner class CoreView : View(this@MainActivity) {
 
