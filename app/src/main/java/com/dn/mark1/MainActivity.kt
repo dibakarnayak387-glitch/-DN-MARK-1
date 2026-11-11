@@ -31,6 +31,8 @@ class MainActivity : Activity() {
     private var statusView: TextView? = null
     private var offlineEngine: OfflineVoiceEngine? = null
     private var jarvisWakeDetected = false
+    private var lastOfflineCommand = ""
+    private var lastOfflineCommandAt = 0L
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
