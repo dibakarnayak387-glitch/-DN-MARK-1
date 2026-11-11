@@ -307,7 +307,25 @@ root.addView(space(12))
 
                         if (command != null) {
                             updateStatus("YOU: $command")
-                            handleCommand(command)
+
+if (!jarvisWakeDetected) {
+    val wake = command.lowercase(Locale.ROOT)
+
+    if (wake.contains("jarvis") ||
+        wake.contains("जार्विस") ||
+        wake.contains("जारविस")) {
+
+        jarvisWakeDetected = true
+        speak("जी, मैं सुन रहा हूँ।")
+        updateStatus("JARVIS ACTIVATED - SPEAK COMMAND")
+    } else {
+        updateStatus("SAY JARVIS TO ACTIVATE")
+    }
+
+} else {
+    jarvisWakeDetected = false
+    handleCommand(command)
+}
                         } else {
                             updateStatus("NO VOICE DETECTED")
                         }
