@@ -166,56 +166,51 @@ offlineButton = TextView(this).apply {
             isEnabled = false
             text = "LOADING HINDI ENGINE..."
 
-            val newEngine = OfflineVoiceEngine(
+            
+                val newEngine = OfflineVoiceEngine(
                 this@MainActivity,
                 { command ->
                     runOnUiThread {
                         updateStatus("YOU: $command")
+
                         val now = System.currentTimeMillis()
+                        if (command == lastOfflineCommand &&
+                            now - lastOfflineCommandAt < 1500L) {
+                            return@runOnUiThread
+                        }
 
-if (command == lastOfflineCommand &&
-    now - lastOfflineCommandAt < 1500L) {
-    return@runOnUiThread
-}
+                        lastOfflineCommand = command
+                        lastOfflineCommandAt = now
 
-lastOfflineCommand = command
-lastOfflineCommandAt = now
+                        val normalized = command.lowercase(Locale.ROOT)
+                        val isWake = normalized.contains("jarvis") ||
+                            normalized.contains("जार्विस") ||
+                            normalized.contains("जारविस") ||
+                            normalized.contains("जर्विस")
 
-val normalized = command.lowercase(Locale.ROOT)
+                        if (isWake) {
+                            jarvisWakeDetected = true
 
-val isWake = normalized.contains("jarvis") ||
-    normalized.contains("जार्विस") ||
-    normalized.contains("जारविस") ||
-    normalized.contains("जर्विस")
+                            val commandAfterWake = normalized
+                                .replace(
+                                    Regex("jarvis|जार्विस|जारविस|जर्विस"),
+                                    ""
+                                )
+                                .trim()
 
-if (isWake) {
-    jarvisWakeDetected = true
-    speak("जी, मैं सुन रहा हूँ।")
-    updateStatus("JARVIS READY - SPEAK COMMAND")
-} else if (jarvisWakeDetected) {
-    handleCommand(command)
-    updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
-} else {
-    updateStatus("SAY JARVIS TO ACTIVATE")
-}
-        updateStatus("SAY JARVIS TO ACTIVATE")
-    }
-
-} else {
-    val wake = command.lowercase(Locale.ROOT)
-
-    if (wake.contains("jarvis") ||
-        wake.contains("जार्विस") ||
-        wake.contains("जारविस")) {
-
-        speak("जी, मैं सुन रहा हूँ।")
-        updateStatus("JARVIS READY - SPEAK COMMAND")
-
-    } else {
-        jarvisWakeDetected = false
-        handleCommand(command)
-    }
-}
+                            if (commandAfterWake.isNotBlank()) {
+                                handleCommand(commandAfterWake)
+                                updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
+                            } else {
+                                speak("जी, मैं सुन रहा हूँ।")
+                                updateStatus("JARVIS READY - SPEAK COMMAND")
+                            }
+                        } else if (jarvisWakeDetected) {
+                            handleCommand(command)
+                            updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
+                        } else {
+                            updateStatus("SAY JARVIS TO ACTIVATE")
+                        }
                     }
                 },
                 { error ->
