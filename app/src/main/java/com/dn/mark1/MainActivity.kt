@@ -386,18 +386,7 @@ if (!jarvisWakeDetected) {
     
 private fun handleCommand(command: String) {
     val input = command.lowercase(Locale.ROOT)
-      
-            val launch = packageManager
-                .getLaunchIntentForPackage("com.whatsapp")
-
-            if (launch != null) {
-                speak("Opening WhatsApp")
-                startActivity(launch)
-                updateStatus("WHATSAPP OPENED")
-            } else {
-                speak("WhatsApp is not installed")
-            }
-        }
+    
     val pattern = Regex(
         """(-?\d+(?:\.\d+)?)\s*(\+|-|\*|/|प्लस|जोड़|जमा|माइनस|घटा|गुणा|भाग|plus|minus|times|multiply|divide)\s*(-?\d+(?:\.\d+)?)""",
         RegexOption.IGNORE_CASE
