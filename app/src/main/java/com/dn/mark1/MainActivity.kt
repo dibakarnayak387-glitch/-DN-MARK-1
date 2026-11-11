@@ -455,28 +455,28 @@ private fun handleCommand(command: String) {
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(
-            requestCode, permissions, grantResults
-        )
+  
+override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray
+) {
+    super.onRequestPermissionsResult(
+        requestCode, permissions, grantResults
+    )
 
-        if (requestCode == 101 &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startListening()
-        } else if (requestCode == 101) {
-            updateStatus("MICROPHONE PERMISSION DENIED")
-        }
+    if (requestCode == 101 &&
+        grantResults.isNotEmpty() &&
+        grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        startListening()
+    } else if (requestCode == 101) {
+        updateStatus("MICROPHONE PERMISSION DENIED")
+    } else if (requestCode == 102) {
+        updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
     }
-    else if (requestCode == 102) {
-    updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
-    }
-
-    override fun onDestroy() {
+}
+  
+   override fun onDestroy() {
         recognizer?.destroy()
         recognizer = null
         tts?.stop()
