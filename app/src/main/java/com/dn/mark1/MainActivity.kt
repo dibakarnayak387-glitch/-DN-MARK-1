@@ -311,7 +311,19 @@ root.addView(space(12))
 
         setContentView(scroll)
     }
+private fun startJarvisService() {
+    val intent = Intent(this, JarvisVoiceService::class.java).apply {
+        action = JarvisVoiceService.ACTION_START
+    }
 
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        startForegroundService(intent)
+    } else {
+        startService(intent)
+    }
+
+    updateStatus("JARVIS BACKGROUND SERVICE STARTED")
+}
     private fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             updateStatus("Speech recognition unavailable")
