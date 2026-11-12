@@ -77,6 +77,26 @@ class MainActivity : Activity() {
         }
         statusView = status
         root.addView(status)
+        val startJarvisButton = TextView(this).apply {
+    text = "START JARVIS"
+    textSize = 14f
+    setTextColor(cyan)
+    gravity = Gravity.CENTER
+    setPadding(dp(12), dp(16), dp(12), dp(16))
+    background = panel()
+
+    setOnClickListener {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                arrayOf(Manifest.permission.RECORD_AUDIO), 103
+            )
+        } else {
+            startJarvisService()
+        }
+    }
+}
+root.addView(startJarvisButton)
+root.addView(space(12))
         root.addView(space(24))
 
         root.addView(text("YOUR AI CORE", 13f, muted, true))
