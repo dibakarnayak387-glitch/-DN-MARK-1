@@ -7,10 +7,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
@@ -20,6 +22,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     companion object {
         const val ACTION_START = "com.dn.mark1.ACTION_START_JARVIS"
         const val ACTION_STOP = "com.dn.mark1.ACTION_STOP_JARVIS"
+
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "dn_jarvis_voice"
     }
@@ -28,6 +31,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private var voiceEngine: OfflineVoiceEngine? = null
     private var tts: TextToSpeech? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var ttsReady = false
     private var serviceStopped = false
@@ -37,11 +41,17 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     override fun onCreate() {
         super.onCreate()
+
         createNotificationChannel()
 
-        tts = TextToSpeech(this, this)
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
 
-        updateNotification("Jarvis voice service starting")
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "DNMark1:JarvisWakeLock"
+        )
+
+        tts = TextToSpeech(this, this)
     }
 
     override fun onStartCommand(
@@ -61,13 +71,28 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             "Jarvis voice service starting"
         )
 
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        try {
+            if (wakeLock?.isHeld != true) {
+                wakeLock?.acquire()
+            }
+        } catch (_: Exception) {
+        }
 
         if (voiceEngine == null) {
             loadVoiceEngine()
         }
 
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun loadVoiceEngine() {
@@ -75,15 +100,26 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val engine = OfflineVoiceEngine(
             applicationContext,
+
             onText = { text ->
                 handler.post {
                     handleRecognizedText(text)
                 }
             },
-            onError = { error ->
+
+            onFailure = { error ->
                 handler.post {
                     if (!serviceStopped && !processing) {
                         updateNotification("Voice error: $error")
+                        scheduleListeningRestart()
+                    }
+                }
+            },
+
+            onTimeout = {
+                handler.post {
+                    if (!serviceStopped && !processing) {
+                        updateNotification("Restarting voice listening...")
                         scheduleListeningRestart()
                     }
                 }
@@ -92,12 +128,21 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         voiceEngine = engine
 
-        engine.load {
-            if (!serviceStopped) {
-                updateNotification("Listening for Jarvis...")
-                startWakeListening()
+        engine.load(
+            onReady = {
+                if (!serviceStopped) {
+                    updateNotification("Listening for Jarvis...")
+                    startWakeListening()
+                }
+            },
+
+            onLoadError = { error ->
+                if (!serviceStopped) {
+                    updateNotification("Voice model error: $error")
+                    processing = false
+                }
             }
-        }
+        )
     }
 
     private fun startWakeListening() {
@@ -107,7 +152,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             voiceEngine?.startListening()
             updateNotification("Listening for Jarvis...")
         } catch (e: Exception) {
-            updateNotification("Voice start failed")
+            updateNotification("Voice start failed: ${e.message}")
             scheduleListeningRestart()
         }
     }
@@ -135,23 +180,22 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         processing = true
 
-        try {
-            voiceEngine?.stopListening()
-        } catch (_: Exception) {
-        }
+        voiceEngine?.stopListening()
 
         if (!waitingForCommand && wakeFound) {
+
             val command = wakeWords.fold(lower) { result, word ->
                 result.replace(word, "").trim()
             }.trim(' ', ',', '.', '?', '!')
 
+            waitingForCommand = true
+
             if (command.isBlank()) {
-                waitingForCommand = true
                 speakAndResume("जी, मैं सुन रहा हूँ।")
             } else {
-                waitingForCommand = true
                 askGemini(command)
             }
+
         } else {
             waitingForCommand = false
             askGemini(text)
@@ -163,10 +207,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         GeminiClient.send(
             listOf(
-                GeminiMessage(
-                    "user",
-                    question
-                )
+                GeminiMessage("user", question)
             )
         ) { reply, error ->
 
@@ -191,10 +232,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         }
 
         val utteranceId = if (waitingForCommand) {
-    "jarvis_ack_${System.currentTimeMillis()}"
-} else {
-    "jarvis_reply_${System.currentTimeMillis()}"
-}
+            "jarvis_ack_${System.currentTimeMillis()}"
+        } else {
+            "jarvis_reply_${System.currentTimeMillis()}"
+        }
 
         tts?.speak(
             message,
@@ -204,61 +245,67 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         )
     }
 
-    
-override fun onInit(status: Int) {
-    if (status == TextToSpeech.SUCCESS) {
-        ttsReady = true
-        tts?.language = Locale("hi", "IN")
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            ttsReady = true
+            tts?.language = Locale("hi", "IN")
 
-        pendingSpeech?.let { message ->
-            pendingSpeech = null
-            speakAndResume(message)
-        }
-    } else {
-        updateNotification("Speech engine unavailable")
-    }
+            tts?.setOnUtteranceProgressListener(
+                object : UtteranceProgressListener() {
 
-    tts?.setOnUtteranceProgressListener(
-        object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                    }
 
-            override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        handler.post {
+                            if (!serviceStopped) {
 
-            override fun onDone(utteranceId: String?) {
-                handler.post {
-                    if (!serviceStopped) {
-                        if (utteranceId?.startsWith("jarvis_ack_") != true) {
-                            waitingForCommand = false
+                                if (
+                                    utteranceId?.startsWith("jarvis_ack_") != true
+                                ) {
+                                    waitingForCommand = false
+                                }
+
+                                processing = false
+                                scheduleListeningRestart()
+                            }
                         }
+                    }
 
-                        processing = false
-                        scheduleListeningRestart()
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        handler.post {
+                            if (!serviceStopped) {
+                                processing = false
+                                waitingForCommand = false
+                                scheduleListeningRestart()
+                            }
+                        }
                     }
                 }
+            )
+
+            pendingSpeech?.let { message ->
+                pendingSpeech = null
+                speakAndResume(message)
             }
 
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                handler.post {
-                    if (!serviceStopped) {
-                        processing = false
-                        scheduleListeningRestart()
-                    }
-                }
-            }
+        } else {
+            updateNotification("Speech engine unavailable")
         }
-    )
-}
-
+    }
 
     private fun scheduleListeningRestart() {
         if (serviceStopped) return
+
+        handler.removeCallbacksAndMessages(null)
 
         handler.postDelayed({
             if (!serviceStopped) {
                 processing = false
                 startWakeListening()
             }
-        }, 700)
+        }, 800)
     }
 
     private fun buildNotification(message: String): Notification {
@@ -311,19 +358,21 @@ override fun onInit(status: Int) {
 
     private fun stopJarvis() {
         serviceStopped = true
-
         handler.removeCallbacksAndMessages(null)
 
-        try {
-            voiceEngine?.stopListening()
-        } catch (_: Exception) {
-        }
-
+        voiceEngine?.release()
         voiceEngine = null
 
         tts?.stop()
         tts?.shutdown()
         tts = null
+
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {
+        }
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -333,13 +382,19 @@ override fun onInit(status: Int) {
         serviceStopped = true
         handler.removeCallbacksAndMessages(null)
 
-        try {
-            voiceEngine?.stopListening()
-        } catch (_: Exception) {
-        }
+        voiceEngine?.release()
+        voiceEngine = null
 
         tts?.stop()
         tts?.shutdown()
+        tts = null
+
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {
+        }
 
         super.onDestroy()
     }
