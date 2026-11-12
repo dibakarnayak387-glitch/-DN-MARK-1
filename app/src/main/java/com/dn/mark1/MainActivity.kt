@@ -33,6 +33,7 @@ class MainActivity : Activity() {
     private var jarvisWakeDetected = false
     private var lastOfflineCommand = ""
     private var lastOfflineCommandAt = 0L
+    private val chatHistory = mutableListOf<GeminiMessage>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -383,7 +384,33 @@ if (!jarvisWakeDetected) {
         }
     }
 
-    
+  private fun askGemini(userText: String) {
+    updateStatus("GEMINI AI THINKING...")
+
+    chatHistory.add(
+        GeminiMessage("user", userText)
+    )
+
+    GeminiClient.send(chatHistory.toList()) { reply, error ->
+        runOnUiThread {
+            if (reply != null) {
+                chatHistory.add(
+                    GeminiMessage("assistant", reply)
+                )
+
+                while (chatHistory.size > 20) {
+                    chatHistory.removeAt(0)
+                }
+
+                updateStatus("JARVIS AI RESPONSE READY")
+                speak(reply)
+            } else {
+                updateStatus("GEMINI ERROR: ${error ?: "Unknown error"}")
+                speak("माफ कीजिए, अभी AI से कनेक्शन नहीं हो पाया।")
+            }
+        }
+    }
+}  
 private fun handleCommand(command: String) {
     val input = command.lowercase(Locale.ROOT)
     
@@ -450,12 +477,8 @@ private fun handleCommand(command: String) {
             speak("नमस्ते! मैं D N MARK 1 हूँ।")
             updateStatus("COMMAND COMPLETED")
         }
-
-        else -> {
-            speak("मैंने आपकी बात सुनी। यह कमांड अभी उपलब्ध नहीं है।")
-            updateStatus("COMMAND RECEIVED")
-        }
-    }
+else -> {
+    askGemini(command)
 }
 
 
