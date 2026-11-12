@@ -3,16 +3,13 @@ package com.dn.mark1
 
 import android.Manifest
 import android.app.Activity
-import android.os.Bundle
-import android.os.Build
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+import android.os.Build
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.View
@@ -27,14 +24,15 @@ class MainActivity : Activity() {
     private val white = Color.WHITE
     private val muted = Color.rgb(145, 180, 205)
 
-    private var recognizer: SpeechRecognizer? = null
-    private var tts: TextToSpeech? = null
     private var statusView: TextView? = null
-    private var offlineEngine: OfflineVoiceEngine? = null
-    private var jarvisWakeDetected = false
-    private var lastOfflineCommand = ""
-    private var lastOfflineCommandAt = 0L
-    private val chatHistory = mutableListOf<GeminiMessage>()
+    private var startButton: TextView? = null
+    private var tts: TextToSpeech? = null
+
+    companion object {
+        private const val REQUEST_MICROPHONE = 103
+        private const val REQUEST_NOTIFICATIONS = 104
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -75,206 +73,109 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = panel()
         }
+
         statusView = status
         root.addView(status)
+        root.addView(space(12))
+
         val startJarvisButton = TextView(this).apply {
-    text = "START JARVIS"
-    textSize = 14f
-    setTextColor(cyan)
-    gravity = Gravity.CENTER
-    setPadding(dp(12), dp(16), dp(12), dp(16))
-    background = panel()
+            text = "START JARVIS"
+            textSize = 14f
+            setTextColor(cyan)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(16), dp(12), dp(16))
+            background = panel()
 
-    setOnClickListener {
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO), 103
-            )
-        } else {
-            startJarvisService()
+            setOnClickListener {
+                requestMicrophoneAndStart()
+            }
         }
-    }
-}
-root.addView(startJarvisButton)
-root.addView(space(12))
-        root.addView(space(24))
 
-        root.addView(text("YOUR AI CORE", 13f, muted, true))
+        startButton = startJarvisButton
+        root.addView(startJarvisButton)
 
-        val core = CoreView()
-        root.addView(core, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(230)
+        root.addView(space(10))
+        root.addView(text(
+            "Start once, then say Jarvis while the voice service is active.",
+            11f, muted, false
         ))
 
-        core.setOnClickListener {
-            startListening()
-        }
+        root.addView(space(24))
+        root.addView(text("YOUR AI CORE", 13f, muted, true))
 
-        root.addView(text("TAP TO SPEAK", 14f, cyan, true).apply {
-            gravity = Gravity.CENTER
-            setOnClickListener { startListening() }
-        })
-        val downloadButton = TextView(this).apply {
-    text = "DOWNLOAD HINDI VOICE MODEL"
-    textSize = 14f
-    setTextColor(cyan)
-    gravity = Gravity.CENTER
-    setPadding(dp(12), dp(16), dp(12), dp(16))
-    background = panel()
-
-    setOnClickListener {
-        isEnabled = false
-        text = "DOWNLOADING... 0%"
-
-        ModelDownloader.download(
-            this@MainActivity,
-            { progress ->
-                text = "DOWNLOADING... $progress%"
-            },
-            { result ->
-                isEnabled = true
-
-                if (result.isSuccess) {
-                    text = "HINDI MODEL READY"
-                    updateStatus("HINDI MODEL INSTALLED")
-                    speak("Hindi voice model ready")
-                } else {
-                    text = "DOWNLOAD FAILED - RETRY"
-                    updateStatus("MODEL DOWNLOAD FAILED")
-                }
-            }
+        root.addView(
+            CoreView(),
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(230)
+            )
         )
-    }
-}
 
-root.addView(downloadButton)
-root.addView(space(12))
-var offlineListening = false
-lateinit var offlineButton: TextView
+        root.addView(text(
+            "BACKGROUND VOICE READY • USE START JARVIS",
+            11f, muted, true
+        ).apply {
+            gravity = Gravity.CENTER
+        })
 
-offlineButton = TextView(this).apply {
-    text = "START OFFLINE VOICE"
-    textSize = 14f
-    setTextColor(cyan)
-    gravity = Gravity.CENTER
-    setPadding(dp(12), dp(16), dp(12), dp(16))
-    background = panel()
+        root.addView(space(20))
 
-    setOnClickListener {
-        if (offlineListening) {
-            offlineEngine?.stopListening()
-            offlineListening = false
-            text = "START OFFLINE VOICE"
-            updateStatus("OFFLINE VOICE STOPPED")
-            return@setOnClickListener
-        }
+        val downloadButton = TextView(this).apply {
+            text = "DOWNLOAD HINDI VOICE MODEL"
+            textSize = 14f
+            setTextColor(cyan)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(16), dp(12), dp(16))
+            background = panel()
 
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO), 102
-            )
-            return@setOnClickListener
-        }
+            setOnClickListener {
+                isEnabled = false
+                text = "DOWNLOADING... 0%"
 
-        val engine = offlineEngine
-
-        if (engine != null) {
-            offlineListening = true
-            text = "STOP OFFLINE VOICE"
-            updateStatus("OFFLINE LISTENING...")
-            engine.startListening()
-        } else {
-            isEnabled = false
-            text = "LOADING HINDI ENGINE..."
-
-            
-                val newEngine = OfflineVoiceEngine(
-                this@MainActivity,
-                { command ->
-                    runOnUiThread {
-                        updateStatus("YOU: $command")
-
-                        val now = System.currentTimeMillis()
-                        if (command == lastOfflineCommand &&
-                            now - lastOfflineCommandAt < 1500L) {
-                            return@runOnUiThread
+                ModelDownloader.download(
+                    this@MainActivity,
+                    { progress ->
+                        runOnUiThread {
+                            text = "DOWNLOADING... $progress%"
                         }
+                    },
+                    { result ->
+                        runOnUiThread {
+                            isEnabled = true
 
-                        lastOfflineCommand = command
-                        lastOfflineCommandAt = now
+                            if (result.isSuccess) {
+                                text = "HINDI MODEL READY"
+                                updateStatus("HINDI MODEL INSTALLED")
 
-                        val normalized = command.lowercase(Locale.ROOT)
-                        val isWake = normalized.contains("jarvis") ||
-                            normalized.contains("जार्विस") ||
-                            normalized.contains("जारविस") ||
-                            normalized.contains("जर्विस")
-
-                        if (isWake) {
-                            jarvisWakeDetected = true
-
-                            val commandAfterWake = normalized
-                                .replace(
-                                    Regex("jarvis|जार्विस|जारविस|जर्विस"),
-                                    ""
+                                tts?.speak(
+                                    "Hindi voice model ready",
+                                    TextToSpeech.QUEUE_FLUSH,
+                                    null,
+                                    "model_ready"
                                 )
-                                .trim()
-
-                            if (commandAfterWake.isNotBlank()) {
-                                handleCommand(commandAfterWake)
-                                updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
                             } else {
-                                speak("जी, मैं सुन रहा हूँ।")
-                                updateStatus("JARVIS READY - SPEAK COMMAND")
+                                text = "DOWNLOAD FAILED - RETRY"
+                                updateStatus("MODEL DOWNLOAD FAILED")
                             }
-                        } else if (jarvisWakeDetected) {
-                            handleCommand(command)
-                            updateStatus("JARVIS READY - SPEAK NEXT COMMAND")
-                        } else {
-                            updateStatus("SAY JARVIS TO ACTIVATE")
                         }
                     }
-                },
-                { error ->
-                    runOnUiThread {
-                        updateStatus("OFFLINE ERROR: $error")
-                        offlineListening = false
-                        isEnabled = true
-                        text = "START OFFLINE VOICE"
-                    }
-                }
-            )
-
-            offlineEngine = newEngine
-
-            newEngine.load(
-                {
-                    isEnabled = true
-                    offlineListening = true
-                    text = "STOP OFFLINE VOICE"
-                    updateStatus("OFFLINE LISTENING...")
-                    newEngine.startListening()
-                }
-            )
+                )
+            }
         }
-    }
-}
 
-root.addView(offlineButton)
-root.addView(space(12))
-
+        root.addView(downloadButton)
         root.addView(space(25))
         root.addView(text("COMMAND CENTER", 17f, white, true))
         root.addView(space(12))
 
         val features = listOf(
-            "VOICE ASSISTANT" to "Tap the central AI Core",
-            "AI CHAT" to "Smart conversation",
+            "VOICE ASSISTANT" to "Say Jarvis to activate",
+            "AI CHAT" to "Smart conversation via Gemini",
             "WEATHER" to "Weather information",
             "BATTERY" to "Phone battery status",
             "WHATSAPP" to "Open WhatsApp by voice",
             "AI MEMORY" to "Assistant memory",
-            "LANGUAGE" to "Hindi • Odia • English",
+            "LANGUAGE" to "Hindi • Odia • English*",
             "SETTINGS" to "System preferences"
         )
 
@@ -301,6 +202,11 @@ root.addView(space(12))
             root.addView(space(10))
         }
 
+        root.addView(text(
+            "*Current offline voice recognition uses the installed Hindi Vosk model.",
+            10f, muted, false
+        ))
+
         root.addView(space(12))
         root.addView(text(
             "D.N. MARK 1 • VOICE SYSTEM",
@@ -311,226 +217,99 @@ root.addView(space(12))
 
         setContentView(scroll)
     }
-private fun startJarvisService() {
-    val intent = Intent(this, JarvisVoiceService::class.java).apply {
-        action = JarvisVoiceService.ACTION_START
-    }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        startForegroundService(intent)
-    } else {
-        startService(intent)
-    }
-
-    updateStatus("JARVIS BACKGROUND SERVICE STARTED")
-}
-    private fun startListening() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            updateStatus("Speech recognition unavailable")
-            speak("Voice recognition is not available")
-            return
-        }
-
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
+    private fun requestMicrophoneAndStart() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
             requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO), 101
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQUEST_MICROPHONE
             )
             return
         }
 
-        try {
-            if (recognizer == null) {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(this)
-                recognizer?.setRecognitionListener(object : RecognitionListener {
-
-                    override fun onReadyForSpeech(params: Bundle?) {
-                        updateStatus("LISTENING...")
-                    }
-
-                    override fun onBeginningOfSpeech() {
-                        updateStatus("VOICE DETECTED")
-                    }
-
-                    override fun onEndOfSpeech() {
-                        updateStatus("PROCESSING...")
-                    }
-
-                    override fun onResults(results: Bundle?) {
-                        val words = results?.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
-                        )
-                        val command = words?.firstOrNull()
-
-                        if (command != null) {
-                            updateStatus("YOU: $command")
-                            
-                            
-if (!jarvisWakeDetected) {
-    val wake = command.lowercase(Locale.ROOT)
-
-    if (wake.contains("jarvis") ||
-        wake.contains("जार्विस") ||
-        wake.contains("जारविस")) {
-
-        jarvisWakeDetected = true
-        speak("जी, मैं सुन रहा हूँ।")
-        updateStatus("JARVIS ACTIVATED - SPEAK COMMAND")
-    } else {
-        updateStatus("SAY JARVIS TO ACTIVATE")
+        requestNotificationPermissionOrStart()
     }
 
-} else {
-    jarvisWakeDetected = false
-    handleCommand(command)
-}
-                        } else {
-                            updateStatus("NO VOICE DETECTED")
-                        }
-                    }
-
-                    override fun onError(error: Int) {
-                        updateStatus("VOICE ERROR - TAP TO RETRY")
-                    }
-
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onPartialResults(partialResults: Bundle?) {}
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
-            }
-
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            }
-
-            recognizer?.startListening(intent)
-            updateStatus("STARTING MICROPHONE...")
-
-        } catch (e: Exception) {
-            updateStatus("VOICE SYSTEM ERROR")
-        }
-    }
-
-  private fun askGemini(userText: String) {
-    updateStatus("GEMINI AI THINKING...")
-
-    chatHistory.add(
-        GeminiMessage("user", userText)
-    )
-
-    GeminiClient.send(chatHistory.toList()) { reply, error ->
-        runOnUiThread {
-            if (reply != null) {
-                chatHistory.add(
-                    GeminiMessage("assistant", reply)
-                )
-
-                while (chatHistory.size > 20) {
-                    chatHistory.removeAt(0)
-                }
-
-                updateStatus("JARVIS AI RESPONSE READY")
-                speak(reply)
-            } else {
-                updateStatus("GEMINI ERROR: ${error ?: "Unknown error"}")
-                speak("माफ कीजिए, अभी AI से कनेक्शन नहीं हो पाया।")
-            }
-        }
-    }
-}  
-private fun handleCommand(command: String) {
-    val input = command.lowercase(Locale.ROOT)
-    
-    val pattern = Regex(
-        """(-?\d+(?:\.\d+)?)\s*(\+|-|\*|/|प्लस|जोड़|जमा|माइनस|घटा|गुणा|भाग|plus|minus|times|multiply|divide)\s*(-?\d+(?:\.\d+)?)""",
-        RegexOption.IGNORE_CASE
-    )
-
-    val match = pattern.find(input)
-
-    if (match != null) {
-        val a = match.groupValues[1].toDouble()
-        val op = match.groupValues[2]
-        val b = match.groupValues[3].toDouble()
-
-        if ((op == "/" || op == "भाग" || op == "divide") && b == 0.0) {
-            speak("शून्य से भाग नहीं दे सकते।")
+    private fun requestNotificationPermissionOrStart() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_NOTIFICATIONS
+            )
             return
         }
 
-        val result = when (op) {
-            "+", "प्लस", "जोड़", "जमा", "plus" -> a + b
-            "-", "माइनस", "घटा", "minus" -> a - b
-            "*", "गुणा", "times", "multiply" -> a * b
-            "/", "भाग", "divide" -> a / b
-            else -> return
-        }
-
-        val answer = if (result % 1.0 == 0.0) {
-            result.toLong().toString()
-        } else {
-            result.toString()
-        }
-
-        speak("जवाब है $answer")
-        updateStatus("CALCULATION COMPLETE")
-        return
+        startJarvisService()
     }
 
-    when {
-        input.contains("whatsapp") ||
-        input.contains("whats app") ||
-        input.contains("व्हाट्स") ||
-        input.contains("वाट्स") ||
-        input.contains("वॉट्स") ||
-        input.contains("व्हाट्सअप") ||
-        input.contains("वाट्सअप") ||
-        input.contains("वॉट्सअप") -> {
-            val launch = packageManager
-                .getLaunchIntentForPackage("com.whatsapp")
+    private fun startJarvisService() {
+        try {
+            val intent = Intent(
+                this,
+                JarvisVoiceService::class.java
+            ).apply {
+                action = JarvisVoiceService.ACTION_START
+            }
 
-            if (launch != null) {
-                speak("Opening WhatsApp")
-                startActivity(launch)
-                updateStatus("WHATSAPP OPENED")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
             } else {
-                speak("WhatsApp is not installed")
+                startService(intent)
+            }
+
+            updateStatus("JARVIS BACKGROUND VOICE SERVICE STARTED")
+            startButton?.text = "JARVIS SERVICE STARTED"
+
+        } catch (e: Exception) {
+            updateStatus(
+                "COULD NOT START JARVIS: ${e.message ?: "CHECK PERMISSIONS"}"
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        )
+
+        when (requestCode) {
+            REQUEST_MICROPHONE -> {
+                if (
+                    grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestNotificationPermissionOrStart()
+                } else {
+                    updateStatus("MICROPHONE PERMISSION REQUIRED")
+                }
+            }
+
+            REQUEST_NOTIFICATIONS -> {
+                startJarvisService()
             }
         }
-
-        input.contains("hello") ||
-        input.contains("नमस्ते") ||
-        input.contains("हेलो") -> {
-            speak("नमस्ते! मैं D N MARK 1 हूँ।")
-            updateStatus("COMMAND COMPLETED")
-        }
-else -> {
-    askGemini(command)
-}
-    }
-}
-
-
-    private fun speak(message: String) {
-        tts?.speak(
-            message,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "dn_reply"
-        )
     }
 
     private fun updateStatus(message: String) {
         statusView?.text = "● $message"
     }
 
-    private fun featureCard(title: String, subtitle: String): View {
+    private fun featureCard(
+        title: String,
+        subtitle: String
+    ): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -541,6 +320,7 @@ else -> {
         card.addView(text(title, 13f, cyan, true))
         card.addView(space(7))
         card.addView(text(subtitle, 11f, muted, false))
+
         return card
     }
 
@@ -554,8 +334,11 @@ else -> {
             text = value
             textSize = size
             setTextColor(color)
-            typeface = if (bold) Typeface.DEFAULT_BOLD
-                       else Typeface.DEFAULT
+            typeface = if (bold) {
+                Typeface.DEFAULT_BOLD
+            } else {
+                Typeface.DEFAULT
+            }
         }
     }
 
@@ -580,56 +363,12 @@ else -> {
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
-  
-override fun onRequestPermissionsResult(
-    requestCode: Int,
-    permissions: Array<out String>,
-    grantResults: IntArray
-) {
-    super.onRequestPermissionsResult(
-        requestCode, permissions, grantResults
-    )
-
-    if (requestCode == 101) {
-        if (grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startListening()
-        } else {
-            updateStatus("MICROPHONE PERMISSION DENIED")
-        }
-
-    } else if (requestCode == 102) {
-        if (grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
-        } else {
-            updateStatus("MICROPHONE PERMISSION DENIED")
-        }
-
-    } else if (requestCode == 103) {
-        if (grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startJarvisService()
-        } else {
-            updateStatus("MICROPHONE PERMISSION DENIED")
-        }
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
+        super.onDestroy()
     }
-}
-  
-   
-override fun onDestroy() {
-    offlineEngine?.stopListening()
-    offlineEngine = null
-
-    recognizer?.destroy()
-    recognizer = null
-
-    tts?.stop()
-    tts?.shutdown()
-    tts = null
-
-    super.onDestroy()
-}
 
     inner class CoreView : View(this@MainActivity) {
 
@@ -647,6 +386,7 @@ override fun onDestroy() {
             paint.style = android.graphics.Paint.Style.STROKE
             paint.strokeWidth = dp(2).toFloat()
             paint.color = cyan
+            paint.alpha = 255
             canvas.drawCircle(x, y, radius, paint)
 
             paint.strokeWidth = dp(1).toFloat()
