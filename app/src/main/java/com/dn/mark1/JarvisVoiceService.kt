@@ -190,7 +190,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
-        val utteranceId = "jarvis_${System.currentTimeMillis()}"
+        val utteranceId = if (waitingForCommand) {
+    "jarvis_ack_${System.currentTimeMillis()}"
+} else {
+    "jarvis_reply_${System.currentTimeMillis()}"
+}
 
         tts?.speak(
             message,
@@ -221,12 +225,15 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 override fun onDone(utteranceId: String?) {
                     handler.post {
                         if (!serviceStopped) {
-                            waitingForCommand = false
-                            processing = false
-                            scheduleListeningRestart()
-                        }
-                    }
-                }
+    if (utteranceId?.startsWith("jarvis_ack_") != true) {
+        waitingForCommand = false
+    }
+
+    processing = false
+    scheduleListeningRestart()
+}
+                    
+                                
 
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
