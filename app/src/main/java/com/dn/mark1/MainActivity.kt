@@ -480,6 +480,8 @@ private fun handleCommand(command: String) {
 else -> {
     askGemini(command)
 }
+    }
+}
 
 
     private fun speak(message: String) {
