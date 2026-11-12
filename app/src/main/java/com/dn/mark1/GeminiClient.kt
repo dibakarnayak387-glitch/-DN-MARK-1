@@ -10,7 +10,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-
+import java.util.concurrent.TimeUnit
 data class GeminiMessage(
     val role: String,
     val content: String
@@ -21,7 +21,12 @@ object GeminiClient {
     private const val ENDPOINT =
         "https://dn-mark-1.netlify.app/.netlify/functions/chat"
 
-    private val client = OkHttpClient()
+   private val client = OkHttpClient.Builder()
+    .connectTimeout(30, TimeUnit.SECONDS)
+    .readTimeout(90, TimeUnit.SECONDS)
+    .writeTimeout(30, TimeUnit.SECONDS)
+    .callTimeout(100, TimeUnit.SECONDS)
+    .build()
 
     fun send(
         messages: List<GeminiMessage>,
