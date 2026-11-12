@@ -204,47 +204,51 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         )
     }
 
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            ttsReady = true
-            tts?.language = Locale("hi", "IN")
+    
+override fun onInit(status: Int) {
+    if (status == TextToSpeech.SUCCESS) {
+        ttsReady = true
+        tts?.language = Locale("hi", "IN")
 
-            pendingSpeech?.let { message ->
-                pendingSpeech = null
-                speakAndResume(message)
-            }
-        } else {
-            updateNotification("Speech engine unavailable")
+        pendingSpeech?.let { message ->
+            pendingSpeech = null
+            speakAndResume(message)
         }
-
-        tts?.setOnUtteranceProgressListener(
-            object : UtteranceProgressListener() {
-
-                override fun onStart(utteranceId: String?) {}
-
-                override fun onDone(utteranceId: String?) {
-                    handler.post {
-                        if (!serviceStopped) {
-    if (utteranceId?.startsWith("jarvis_ack_") != true) {
-        waitingForCommand = false
+    } else {
+        updateNotification("Speech engine unavailable")
     }
 
-    processing = false
-    scheduleListeningRestart()
-}
-                    
-                                
+    tts?.setOnUtteranceProgressListener(
+        object : UtteranceProgressListener() {
 
-                @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) {
-                    handler.post {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(utteranceId: String?) {
+                handler.post {
+                    if (!serviceStopped) {
+                        if (utteranceId?.startsWith("jarvis_ack_") != true) {
+                            waitingForCommand = false
+                        }
+
                         processing = false
                         scheduleListeningRestart()
                     }
                 }
             }
-        )
-    }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                handler.post {
+                    if (!serviceStopped) {
+                        processing = false
+                        scheduleListeningRestart()
+                    }
+                }
+            }
+        }
+    )
+}
+
 
     private fun scheduleListeningRestart() {
         if (serviceStopped) return
