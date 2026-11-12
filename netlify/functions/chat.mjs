@@ -1,76 +1,43 @@
 
 export default async (request) => {
   if (request.method !== "POST") {
-    return Response.json({ error: "POST requests only" }, { status: 405 });
+    return Response.json({ error: "POST only" }, { status: 405 });
   }
 
   const geminiKey = process.env.GEMINI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
 
-  if (!geminiKey && !groqKey) {
-    return Response.json({ error: "No AI provider configured" }, { status: 500 });
-  }
-
   try {
     const body = await request.json();
     const messages = body.messages;
 
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: "Messages are required" }, { status: 400 });
+    if (!Array.isArray(messages) || !messages.length) {
+      return Response.json({ error: "Messages required" }, { status: 400 });
     }
 
     const systemPrompt = `You are D.N. MARK 1, a helpful personal AI assistant.
-Understand and respond naturally in Hindi, Odia, and English.
-Use the same language as the user.
-Be clear, accurate, and helpful.
+Understand Hindi, Odia and English.
+Reply in the user's language.
+Be clear and helpful.
 Never claim a phone action was completed unless Android confirms it.
-Never request passwords or API keys.
 Ask confirmation before important or irreversible actions.`;
 
-    const history = messages.slice(-20).map(item => ({
+    const history = messages.slice(-12).map(item => ({
       role: item.role === "assistant" ? "model" : "user",
-      parts: [{ text: String(item.content || "").slice(0, 4000) }]
+      parts: [{ text: String(item.content || "").slice(0, 3000) }]
     }));
 
-    // 1. Try Gemini first
+    // Try Gemini for maximum 4 seconds
     if (geminiKey) {
-      let response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": geminiKey
-          },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: history,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 2048
-            }
-          })
-        }
-      );
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
 
-      let data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        const answer = data.candidates?.[0]?.content?.parts
-          ?.map(part => part.text || "").join("").trim();
-
-        if (answer) return Response.json({ reply: answer, provider: "Gemini" });
-      }
-
-      const retryable = [408, 429, 500, 502, 503, 504].includes(response.status);
-
-      if (retryable) {
-        await new Promise(resolve => setTimeout(resolve, 700));
-
-        response = await fetch(
+      try {
+        const response = await fetch(
           "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent",
           {
             method: "POST",
+            signal: controller.signal,
             headers: {
               "Content-Type": "application/json",
               "x-goog-api-key": geminiKey
@@ -80,78 +47,86 @@ Ask confirmation before important or irreversible actions.`;
               contents: history,
               generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 2048
+                maxOutputTokens: 1024
               }
             })
           }
         );
 
-        data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
+        const answer = data.candidates?.[0]?.content?.parts
+          ?.map(p => p.text || "").join("").trim();
 
-        if (response.ok) {
-          const answer = data.candidates?.[0]?.content?.parts
-            ?.map(part => part.text || "").join("").trim();
-
-          if (answer) return Response.json({ reply: answer, provider: "Gemini" });
+        if (response.ok && answer) {
+          return Response.json({ reply: answer, provider: "Gemini" });
         }
-      }
-
-      if (!retryable) {
-        return Response.json({
-          error: "Gemini request failed",
-          details: data.error?.message || "Unknown error"
-        }, { status: 502 });
+      } catch (error) {
+        // Gemini timeout or connection error: try Groq
+      } finally {
+        clearTimeout(timer);
       }
     }
 
-    // 2. Gemini unavailable: use Groq
+    // Backup: Groq, maximum 5 seconds
     if (groqKey) {
-      const groqMessages = [
-        { role: "system", content: systemPrompt },
-        ...messages.slice(-20).map(item => ({
-          role: item.role === "assistant" ? "assistant" : "user",
-          content: String(item.content || "").slice(0, 4000)
-        }))
-      ];
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${groqKey}`
-          },
-          body: JSON.stringify({
-            model: "openai/gpt-oss-120b",
-            messages: groqMessages,
-            temperature: 0.7,
-            max_completion_tokens: 2048
-          })
+      try {
+        const groqMessages = [
+          { role: "system", content: systemPrompt },
+          ...messages.slice(-12).map(item => ({
+            role: item.role === "assistant" ? "assistant" : "user",
+            content: String(item.content || "").slice(0, 3000)
+          }))
+        ];
+
+        const response = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${groqKey}`
+            },
+            body: JSON.stringify({
+              model: "openai/gpt-oss-120b",
+              messages: groqMessages,
+              temperature: 0.7,
+              max_completion_tokens: 1024
+            })
+          }
+        );
+
+        const data = await response.json().catch(() => ({}));
+        const answer = data.choices?.[0]?.message?.content?.trim();
+
+        if (response.ok && answer) {
+          return Response.json({ reply: answer, provider: "Groq" });
         }
-      );
 
-      const data = await response.json().catch(() => ({}));
-      const answer = data.choices?.[0]?.message?.content?.trim();
+        return Response.json({
+          error: "Groq request failed",
+          details: data.error?.message || "No response"
+        }, { status: 502 });
 
-      if (response.ok && answer) {
-        return Response.json({ reply: answer, provider: "Groq" });
+      } catch (error) {
+        return Response.json({
+          error: "Groq timeout or connection failure"
+        }, { status: 504 });
+      } finally {
+        clearTimeout(timer);
       }
-
-      return Response.json({
-        error: "Both AI providers failed",
-        details: data.error?.message || "Groq request failed"
-      }, { status: 502 });
     }
 
     return Response.json({
-      error: "Gemini unavailable and Groq backup is not configured"
-    }, { status: 502 });
+      error: "No AI provider available"
+    }, { status: 503 });
 
   } catch (error) {
     return Response.json({
-      error: "Backend request failed",
-      details: error.message
+      error: "Backend error"
     }, { status: 500 });
   }
 };
