@@ -590,21 +590,29 @@ override fun onRequestPermissionsResult(
         requestCode, permissions, grantResults
     )
 
-    if (requestCode == 101 &&
-        grantResults.isNotEmpty() &&
-        grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        startListening()
-    } else if (requestCode == 101) {
-        updateStatus("MICROPHONE PERMISSION DENIED")
-    } else if (requestCode == 102)else if (requestCode == 103) {
-    if (grantResults.isNotEmpty() &&
-        grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        startJarvisService()
-    } else {
-        updateStatus("MICROPHONE PERMISSION DENIED")
-    }
-} {
-        updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
+    if (requestCode == 101) {
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startListening()
+        } else {
+            updateStatus("MICROPHONE PERMISSION DENIED")
+        }
+
+    } else if (requestCode == 102) {
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            updateStatus("PERMISSION GRANTED - TAP OFFLINE VOICE")
+        } else {
+            updateStatus("MICROPHONE PERMISSION DENIED")
+        }
+
+    } else if (requestCode == 103) {
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startJarvisService()
+        } else {
+            updateStatus("MICROPHONE PERMISSION DENIED")
+        }
     }
 }
   
