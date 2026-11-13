@@ -302,64 +302,82 @@ private fun handleConfirmation(rawText: String) {
         }
     }
 
-    private fun openApprovedApp(target: String) {
-        val app = target.lowercase(Locale.ROOT).trim()
+    
+private fun openApprovedApp(target: String) {
+    val requested = target.trim()
 
-        val packageName = when {
-            app.contains("whatsapp") -> "com.whatsapp"
-            app.contains("youtube") -> "com.google.android.youtube"
-            app.contains("chrome") -> "com.android.chrome"
-            app.contains("instagram") -> "com.instagram.android"
-            app.contains("settings") ||
-            app.contains("सेटिंग") -> "com.android.settings"
-            else -> null
+    if (requested.isBlank()) {
+        speakAndResume("कौन सा ऐप खोलना है, कृपया उसका नाम बताइए।")
+        return
+    }
+
+    try {
+        val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
         }
 
-        if (packageName == null) {
-            speakAndResume("माफ कीजिए, यह ऐप अभी मेरी सूची में नहीं है।")
-            return
-        }
+        val installedApps = packageManager
+            .queryIntentActivities(launcherIntent, 0)
+            .mapNotNull { resolve ->
+                val info = resolve.activityInfo ?: return@mapNotNull null
+                val label = info.applicationInfo
+                    .loadLabel(packageManager).toString()
 
-        try {
-            val launchIntent =
-                packageManager.getLaunchIntentForPackage(packageName)
-
-            if (launchIntent == null) {
-                speakAndResume("यह ऐप फोन में नहीं मिला।")
-                return
+                label to info.packageName
             }
+            .distinctBy { it.second }
 
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(launchIntent)
-
-            speakAndResume("${target} खोलने की कोशिश कर रहा हूँ।")
-
-        } catch (e: Exception) {
-            speakAndResume("ऐप नहीं खुल पाया। कृपया फिर कोशिश करें।")
+        fun normalize(value: String): String {
+            return value.lowercase(Locale.ROOT)
+                .replace(Regex("[^\\p{L}\\p{N}]"), "")
         }
-    }
 
-    private fun speakAndResume(message: String) {
-        if (serviceStopped) return
+        val wanted = normalize(requested)
 
-        if (!ttsReady) {
-            pendingSpeech = message
+        val exactMatches = installedApps.filter {
+            normalize(it.first) == wanted
+        }
+
+        val matches = if (exactMatches.isNotEmpty()) {
+            exactMatches
+        } else {
+            installedApps.filter {
+                val label = normalize(it.first)
+                label.isNotBlank() &&
+                    (label.contains(wanted) || wanted.contains(label))
+            }
+        }
+
+        if (matches.isEmpty()) {
+            speakAndResume("माफ कीजिए, यह ऐप फोन में नहीं मिला।")
             return
         }
 
-        val utteranceId = if (waitingForCommand) {
-            "jarvis_ack_${System.currentTimeMillis()}"
-        } else {
-            "jarvis_reply_${System.currentTimeMillis()}"
+        if (matches.size > 1) {
+            speakAndResume(
+                "इस नाम के एक से ज्यादा ऐप मिले हैं। कृपया पूरा नाम बताइए।"
+            )
+            return
         }
 
-        tts?.speak(
-            message,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            utteranceId
-        )
+        val selected = matches.first()
+        val launchIntent =
+            packageManager.getLaunchIntentForPackage(selected.second)
+
+        if (launchIntent == null) {
+            speakAndResume("इस ऐप को खोलने का विकल्प उपलब्ध नहीं है।")
+            return
+        }
+
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(launchIntent)
+
+        speakAndResume("${selected.first} खोलने की कोशिश कर रहा हूँ।")
+
+    } catch (e: Exception) {
+        speakAndResume("ऐप नहीं खुल पाया। कृपया फिर कोशिश करें।")
     }
+}
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
