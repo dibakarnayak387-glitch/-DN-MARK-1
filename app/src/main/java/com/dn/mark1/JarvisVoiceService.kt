@@ -151,61 +151,140 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun handleRecognizedText(rawText: String) {
-        if (serviceStopped || processing) return
+    
+private fun handleRecognizedText(rawText: String) {
+    if (serviceStopped || processing) return
 
-        val text = rawText.trim()
-        if (text.isBlank()) return
+    val text = rawText.trim()
+    if (text.isBlank()) return
 
-        val lower = text.lowercase(Locale.ROOT)
+    processing = true
+    voiceEngine?.stopListening()
 
-        
-// Confirmation must match the complete spoken answer.
-val normalized = text.lowercase(Locale.ROOT)
-    .trim()
-    .replace(Regex("[\\s.,!?;:।॥]+"), " ")
-    .trim()
+    if (awaitingConfirmation) {
+        handleConfirmation(text)
+        return
+    }
 
-val yesPhrases = setOf(
-    "हाँ", "हां", "जी हाँ", "जी हां",
-    "yes", "yeah", "yep",
-    "ହଁ", "ହଁ ହଁ"
-)
+    val lower = text.lowercase(Locale.ROOT)
 
-val noPhrases = setOf(
-    "नहीं", "नही", "जी नहीं", "जी नही",
-    "no", "nope",
-    "ନା", "ନାହିଁ", "ରଦ୍ଦ"
-)
+    val wakeWords = listOf(
+        "jarvis", "जार्विस", "जार्वीस", "जर्विस"
+    )
 
-val saysYes = normalized in yesPhrases
-val saysNo = normalized in noPhrases
+    val wakeFound = wakeWords.any { lower.contains(it) }
 
+    if (!waitingForCommand && !wakeFound) {
+        processing = false
+        scheduleListeningRestart()
+        return
+    }
 
-        when {
-            saysYes -> {
-                val action = pendingAction
-                awaitingConfirmation = false
-                pendingAction = null
+    if (!waitingForCommand && wakeFound) {
+        val command = wakeWords.fold(lower) { result, word ->
+            result.replace(word, "").trim()
+        }.trim(' ', ',', '.', '?', '!')
 
-                if (action != null) {
-                    executeAction(action)
-                } else {
-                    speakAndResume("पुष्टि मिल गई, लेकिन काम उपलब्ध नहीं है।")
-                }
+        waitingForCommand = true
+
+        if (command.isBlank()) {
+            speakAndResume("जी, मैं सुन रहा हूँ।")
+        } else {
+            waitingForCommand = false
+            askGemini(command)
+        }
+    } else {
+        waitingForCommand = false
+        askGemini(text)
+    }
+}
+
+private fun askGemini(question: String) {
+    updateNotification("AI is thinking...")
+
+    GeminiClient.sendAgent(
+        listOf(GeminiMessage("user", question))
+    ) { result, error ->
+
+        handler.post {
+            if (serviceStopped) return@post
+
+            if (result == null) {
+                speakAndResume(
+                    "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
+                )
+                return@post
             }
 
-            saysNo -> {
-                awaitingConfirmation = false
-                pendingAction = null
-                speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+            val plan = result.agentPlan
+            val action = plan.steps.firstOrNull {
+                it.action == "open_app" ||
+                it.action == "draft_message"
             }
 
-            else -> {
-                speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
+            if (plan.requiresConfirmation && action != null) {
+                pendingAction = action
+                awaitingConfirmation = true
+
+                speakAndResume(
+                    if (result.reply.isNotBlank()) result.reply
+                    else "क्या आप इस काम की पुष्टि करते हैं?"
+                )
+                return@post
             }
+
+            if (action != null && action.action == "open_app") {
+                executeAction(action)
+                return@post
+            }
+
+            speakAndResume(result.reply)
         }
     }
+}
+
+private fun handleConfirmation(rawText: String) {
+    val normalized = rawText.lowercase(Locale.ROOT)
+        .trim()
+        .replace(Regex("[\\s.,!?;:।॥]+"), " ")
+        .trim()
+
+    val yesPhrases = setOf(
+        "हाँ", "हां", "जी हाँ", "जी हां",
+        "yes", "yeah", "yep",
+        "ହଁ", "ହଁ ହଁ"
+    )
+
+    val noPhrases = setOf(
+        "नहीं", "नही", "जी नहीं", "जी नही",
+        "no", "nope",
+        "ନା", "ନାହିଁ", "ରଦ୍ଦ"
+    )
+
+    when {
+        normalized in yesPhrases -> {
+            val action = pendingAction
+            awaitingConfirmation = false
+            pendingAction = null
+
+            if (action != null) {
+                executeAction(action)
+            } else {
+                speakAndResume("पुष्टि मिली, लेकिन काम उपलब्ध नहीं है।")
+            }
+        }
+
+        normalized in noPhrases -> {
+            awaitingConfirmation = false
+            pendingAction = null
+            speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+        }
+
+        else -> {
+            speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
+        }
+    }
+}
 
     private fun executeAction(action: AgentStep) {
         when (action.action) {
