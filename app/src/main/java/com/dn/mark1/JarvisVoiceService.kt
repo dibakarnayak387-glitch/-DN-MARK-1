@@ -149,7 +149,54 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             }
         )
     }
+private fun startCommandListening() {
+    if (serviceStopped) return
 
+    voiceEngine?.stopListening()
+    updateNotification("Listening for your command...")
+
+    commandRecognizer?.destroy()
+
+    commandRecognizer = AndroidCommandRecognizer(
+        applicationContext,
+        onResult = { recognizedText ->
+            handler.post {
+                if (serviceStopped) return@post
+
+                commandRecognizer?.destroy()
+                commandRecognizer = null
+
+                if (awaitingConfirmation) {
+                    handleConfirmation(recognizedText)
+                } else {
+                    waitingForCommand = false
+                    askGemini(recognizedText)
+                }
+            }
+        },
+        onError = { error ->
+            handler.post {
+                if (serviceStopped) return@post
+
+                commandRecognizer?.destroy()
+                commandRecognizer = null
+
+                if (!awaitingConfirmation) {
+                    waitingForCommand = false
+                }
+
+                speakAndResume(
+                    if (awaitingConfirmation)
+                        "कृपया फिर से हाँ या नहीं बोलिए।"
+                    else
+                        "आवाज़ समझ नहीं आई। कृपया फिर बोलिए।"
+                )
+            }
+        }
+    )
+
+    commandRecognizer?.start("hi-IN")
+}
     private fun startWakeListening() {
         if (serviceStopped || processing) return
 
