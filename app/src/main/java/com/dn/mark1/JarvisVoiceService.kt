@@ -129,7 +129,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                     }
                 }
             }
-        }
+        )
 
         voiceEngine = engine
 
