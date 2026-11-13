@@ -16,6 +16,7 @@ class OfflineVoiceEngine(
     private val onText: (String) -> Unit,
     private val onFailure: (String) -> Unit,
     private val onTimeout: () -> Unit = {}
+    private val onWakeWord: () -> Unit = {}
 ) : RecognitionListener {
 
     private val appContext = context.applicationContext
@@ -137,9 +138,7 @@ class OfflineVoiceEngine(
         }
     }
 
-    override fun onPartialResult(hypothesis: String) {
-    }
-
+    private val onWakeWord: () -> Unit = {}
     override fun onError(e: Exception) {
         if (listening) {
             onFailure(e.message ?: "Recognition error")
