@@ -159,102 +159,28 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val lower = text.lowercase(Locale.ROOT)
 
-        // Confirmation has priority over wake-word detection.
-        if (awaitingConfirmation) {
-            handleConfirmation(lower)
-            return
-        }
+        
+// Confirmation must match the complete spoken answer.
+val normalized = text.lowercase(Locale.ROOT)
+    .trim()
+    .replace(Regex("[\\s.,!?;:।॥]+"), " ")
+    .trim()
 
-        val wakeWords = listOf(
-            "jarvis", "जार्विस", "जार्वीस", "जर्विस"
-        )
+val yesPhrases = setOf(
+    "हाँ", "हां", "जी हाँ", "जी हां",
+    "yes", "yeah", "yep",
+    "ହଁ", "ହଁ ହଁ"
+)
 
-        val wakeFound = wakeWords.any { lower.contains(it) }
+val noPhrases = setOf(
+    "नहीं", "नही", "जी नहीं", "जी नही",
+    "no", "nope",
+    "ନା", "ନାହିଁ", "ରଦ୍ଦ"
+)
 
-        if (!waitingForCommand && !wakeFound) return
+val saysYes = normalized in yesPhrases
+val saysNo = normalized in noPhrases
 
-        processing = true
-        voiceEngine?.stopListening()
-
-        if (!waitingForCommand && wakeFound) {
-            val command = wakeWords.fold(lower) { result, word ->
-                result.replace(word, "").trim()
-            }.trim(' ', ',', '.', '?', '!')
-
-            waitingForCommand = true
-
-            if (command.isBlank()) {
-                speakAndResume("जी, मैं सुन रहा हूँ।")
-            } else {
-                waitingForCommand = false
-                askGemini(command)
-            }
-        } else {
-            waitingForCommand = false
-            askGemini(text)
-        }
-    }
-
-    private fun askGemini(question: String) {
-        updateNotification("AI is thinking...")
-
-        GeminiClient.sendAgent(
-            listOf(GeminiMessage("user", question))
-        ) { result, error ->
-
-            handler.post {
-                if (serviceStopped) return@post
-
-                if (result == null) {
-                    speakAndResume(
-                        "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
-                    )
-                    return@post
-                }
-
-                val plan = result.agentPlan
-                val action = plan.steps.firstOrNull {
-                    it.action == "open_app" ||
-                    it.action == "draft_message"
-                }
-
-                if (plan.requiresConfirmation && action != null) {
-                    pendingAction = action
-                    awaitingConfirmation = true
-
-                    speakAndResume(
-                        if (result.reply.isNotBlank()) result.reply
-                        else "क्या आप यह काम करने की पुष्टि करते हैं?"
-                    )
-                    return@post
-                }
-
-                if (action != null && action.action == "open_app") {
-                    executeAction(action)
-                    return@post
-                }
-
-                speakAndResume(result.reply)
-            }
-        }
-    }
-
-    private fun handleConfirmation(text: String) {
-        processing = true
-        voiceEngine?.stopListening()
-
-        val yesWords = listOf(
-            "हाँ", "हां", "हा", "yes", "yeah", "yep",
-            "ହଁ", "ହଁ ହଁ", "କର"
-        )
-
-        val noWords = listOf(
-            "नहीं", "नही", "ना", "no", "nope",
-            "ନା", "ନାହିଁ", "ରଦ୍ଦ"
-        )
-
-        val saysYes = yesWords.any { text.contains(it) }
-        val saysNo = noWords.any { text.contains(it) }
 
         when {
             saysYes -> {
