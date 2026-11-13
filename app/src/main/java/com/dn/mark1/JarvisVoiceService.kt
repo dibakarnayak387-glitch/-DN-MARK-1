@@ -93,7 +93,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private fun loadVoiceEngine() {
         updateNotification("Loading Hindi voice model...")
 
-        val engine = OfflineVoiceEngine(
+                val engine = OfflineVoiceEngine(
             applicationContext,
             onText = { text ->
                 handler.post { handleRecognizedText(text) }
@@ -106,6 +106,30 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                     }
                 }
             },
+            onTimeout = {
+                handler.post {
+                    if (!serviceStopped && !processing) {
+                        updateNotification("Restarting voice listening...")
+                        scheduleListeningRestart()
+                    }
+                }
+            },
+            onWakeWord = {
+                handler.post {
+                    if (
+                        !serviceStopped &&
+                        !processing &&
+                        !awaitingConfirmation &&
+                        !waitingForCommand
+                    ) {
+                        processing = true
+                        voiceEngine?.stopListening()
+                        waitingForCommand = true
+                        speakAndResume("जी, मैं सुन रहा हूँ।")
+                    }
+                }
+            }
+        )
             onTimeout = {
                            onTimeout = {
                 handler.post {
