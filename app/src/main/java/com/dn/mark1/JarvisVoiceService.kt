@@ -461,7 +461,7 @@ private fun speakAndResume(message: String) {
                 processing = false
                 startWakeListening()
             }
-        }, 800)
+        }, 200)
     }
 
     private fun buildNotification(message: String): Notification {
