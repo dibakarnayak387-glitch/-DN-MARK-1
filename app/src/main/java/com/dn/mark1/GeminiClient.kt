@@ -11,9 +11,29 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+
 data class GeminiMessage(
     val role: String,
     val content: String
+)
+
+data class AgentStep(
+    val action: String,
+    val target: String,
+    val description: String
+)
+
+data class AgentPlan(
+    val goal: String,
+    val steps: List<AgentStep>,
+    val requiresConfirmation: Boolean,
+    val confirmationReason: String
+)
+
+data class GeminiResult(
+    val reply: String,
+    val agentPlan: AgentPlan,
+    val provider: String
 )
 
 object GeminiClient {
@@ -21,16 +41,27 @@ object GeminiClient {
     private const val ENDPOINT =
         "https://dn-mark-1.netlify.app/.netlify/functions/chat"
 
-   private val client = OkHttpClient.Builder()
-    .connectTimeout(30, TimeUnit.SECONDS)
-    .readTimeout(90, TimeUnit.SECONDS)
-    .writeTimeout(30, TimeUnit.SECONDS)
-    .callTimeout(100, TimeUnit.SECONDS)
-    .build()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(100, TimeUnit.SECONDS)
+        .build()
 
+    // Old interface retained for existing code.
     fun send(
         messages: List<GeminiMessage>,
         onResult: (String?, String?) -> Unit
+    ) {
+        sendAgent(messages) { result, error ->
+            onResult(result?.reply, error)
+        }
+    }
+
+    // New Agent interface.
+    fun sendAgent(
+        messages: List<GeminiMessage>,
+        onResult: (GeminiResult?, String?) -> Unit
     ) {
         try {
             val messageArray = JSONArray()
@@ -58,10 +89,7 @@ object GeminiClient {
 
             client.newCall(request).enqueue(object : Callback {
 
-                override fun onFailure(
-                    call: Call,
-                    e: IOException
-                ) {
+                override fun onFailure(call: Call, e: IOException) {
                     onResult(null, e.message ?: "Network error")
                 }
 
@@ -70,8 +98,7 @@ object GeminiClient {
                     response: okhttp3.Response
                 ) {
                     response.use {
-                        val responseText =
-                            it.body?.string().orEmpty()
+                        val responseText = it.body?.string().orEmpty()
 
                         if (!it.isSuccessful) {
                             onResult(
@@ -82,14 +109,68 @@ object GeminiClient {
                         }
 
                         try {
-                            val reply = JSONObject(responseText)
-                                .optString("reply")
+                            val jsonResponse = JSONObject(responseText)
+                            val reply = jsonResponse.optString("reply")
 
                             if (reply.isBlank()) {
                                 onResult(null, "Empty AI response")
-                            } else {
-                                onResult(reply, null)
+                                return
                             }
+
+                            val planJson =
+                                jsonResponse.optJSONObject("agentPlan")
+                                    ?: JSONObject()
+
+                            val stepsJson =
+                                planJson.optJSONArray("steps")
+                                    ?: JSONArray()
+
+                            val steps = mutableListOf<AgentStep>()
+
+                            for (i in 0 until minOf(stepsJson.length(), 5)) {
+                                val step = stepsJson.optJSONObject(i)
+                                    ?: continue
+
+                                val action = step.optString(
+                                    "action",
+                                    "unsupported"
+                                )
+
+                                val safeAction = if (
+                                    action in listOf(
+                                        "answer_only",
+                                        "open_app",
+                                        "draft_message",
+                                        "unsupported"
+                                    )
+                                ) action else "unsupported"
+
+                                steps.add(
+                                    AgentStep(
+                                        action = safeAction,
+                                        target = step.optString("target"),
+                                        description = step.optString("description")
+                                    )
+                                )
+                            }
+
+                            val plan = AgentPlan(
+                                goal = planJson.optString("goal"),
+                                steps = steps,
+                                requiresConfirmation =
+                                    planJson.optBoolean("requiresConfirmation"),
+                                confirmationReason =
+                                    planJson.optString("confirmationReason")
+                            )
+
+                            val result = GeminiResult(
+                                reply = reply,
+                                agentPlan = plan,
+                                provider = jsonResponse.optString("provider")
+                            )
+
+                            onResult(result, null)
+
                         } catch (e: Exception) {
                             onResult(null, "Invalid server response")
                         }
