@@ -378,7 +378,27 @@ private fun openApprovedApp(target: String) {
         speakAndResume("ऐप नहीं खुल पाया। कृपया फिर कोशिश करें।")
     }
 }
+private fun speakAndResume(message: String) {
+    if (serviceStopped) return
 
+    if (!ttsReady) {
+        pendingSpeech = message
+        return
+    }
+
+    val utteranceId = if (waitingForCommand) {
+        "jarvis_ack_${System.currentTimeMillis()}"
+    } else {
+        "jarvis_reply_${System.currentTimeMillis()}"
+    }
+
+    tts?.speak(
+        message,
+        TextToSpeech.QUEUE_FLUSH,
+        null,
+        utteranceId
+    )
+}
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             ttsReady = true
