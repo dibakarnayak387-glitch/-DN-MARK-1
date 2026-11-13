@@ -22,7 +22,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     companion object {
         const val ACTION_START = "com.dn.mark1.ACTION_START_JARVIS"
         const val ACTION_STOP = "com.dn.mark1.ACTION_STOP_JARVIS"
-
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "dn_jarvis_voice"
     }
@@ -37,15 +36,18 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var serviceStopped = false
     private var waitingForCommand = false
     private var processing = false
+
+    // Confirmation memory
+    private var awaitingConfirmation = false
+    private var pendingAction: AgentStep? = null
+
     private var pendingSpeech: String? = null
 
     override fun onCreate() {
         super.onCreate()
-
         createNotificationChannel()
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "DNMark1:JarvisWakeLock"
@@ -59,7 +61,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         flags: Int,
         startId: Int
     ): Int {
-
         if (intent?.action == ACTION_STOP) {
             stopJarvis()
             return START_NOT_STICKY
@@ -67,9 +68,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         serviceStopped = false
 
-        val notification = buildNotification(
-            "Jarvis voice service starting"
-        )
+        val notification = buildNotification("Jarvis voice service starting")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -82,15 +81,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         }
 
         try {
-            if (wakeLock?.isHeld != true) {
-                wakeLock?.acquire()
-            }
+            if (wakeLock?.isHeld != true) wakeLock?.acquire()
         } catch (_: Exception) {
         }
 
-        if (voiceEngine == null) {
-            loadVoiceEngine()
-        }
+        if (voiceEngine == null) loadVoiceEngine()
 
         return START_STICKY
     }
@@ -100,13 +95,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val engine = OfflineVoiceEngine(
             applicationContext,
-
             onText = { text ->
-                handler.post {
-                    handleRecognizedText(text)
-                }
+                handler.post { handleRecognizedText(text) }
             },
-
             onFailure = { error ->
                 handler.post {
                     if (!serviceStopped && !processing) {
@@ -115,7 +106,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                     }
                 }
             },
-
             onTimeout = {
                 handler.post {
                     if (!serviceStopped && !processing) {
@@ -135,7 +125,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                     startWakeListening()
                 }
             },
-
             onLoadError = { error ->
                 if (!serviceStopped) {
                     updateNotification("Voice model error: $error")
@@ -150,7 +139,12 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         try {
             voiceEngine?.startListening()
-            updateNotification("Listening for Jarvis...")
+            updateNotification(
+                if (awaitingConfirmation)
+                    "Listening for confirmation..."
+                else
+                    "Listening for Jarvis..."
+            )
         } catch (e: Exception) {
             updateNotification("Voice start failed: ${e.message}")
             scheduleListeningRestart()
@@ -165,25 +159,24 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val lower = text.lowercase(Locale.ROOT)
 
+        // Confirmation has priority over wake-word detection.
+        if (awaitingConfirmation) {
+            handleConfirmation(lower)
+            return
+        }
+
         val wakeWords = listOf(
-            "jarvis",
-            "जार्विस",
-            "जार्वीस",
-            "जर्विस"
+            "jarvis", "जार्विस", "जार्वीस", "जर्विस"
         )
 
         val wakeFound = wakeWords.any { lower.contains(it) }
 
-        if (!waitingForCommand && !wakeFound) {
-            return
-        }
+        if (!waitingForCommand && !wakeFound) return
 
         processing = true
-
         voiceEngine?.stopListening()
 
         if (!waitingForCommand && wakeFound) {
-
             val command = wakeWords.fold(lower) { result, word ->
                 result.replace(word, "").trim()
             }.trim(' ', ',', '.', '?', '!')
@@ -193,9 +186,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             if (command.isBlank()) {
                 speakAndResume("जी, मैं सुन रहा हूँ।")
             } else {
+                waitingForCommand = false
                 askGemini(command)
             }
-
         } else {
             waitingForCommand = false
             askGemini(text)
@@ -203,23 +196,141 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun askGemini(question: String) {
-        updateNotification("Gemini is thinking...")
+        updateNotification("AI is thinking...")
 
-        GeminiClient.send(
-            listOf(
-                GeminiMessage("user", question)
-            )
-        ) { reply, error ->
+        GeminiClient.sendAgent(
+            listOf(GeminiMessage("user", question))
+        ) { result, error ->
 
             handler.post {
                 if (serviceStopped) return@post
 
-                val answer = reply
-                    ?: "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
+                if (result == null) {
+                    speakAndResume(
+                        "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
+                    )
+                    return@post
+                }
 
-                waitingForCommand = false
-                speakAndResume(answer)
+                val plan = result.agentPlan
+                val action = plan.steps.firstOrNull {
+                    it.action == "open_app" ||
+                    it.action == "draft_message"
+                }
+
+                if (plan.requiresConfirmation && action != null) {
+                    pendingAction = action
+                    awaitingConfirmation = true
+
+                    speakAndResume(
+                        if (result.reply.isNotBlank()) result.reply
+                        else "क्या आप यह काम करने की पुष्टि करते हैं?"
+                    )
+                    return@post
+                }
+
+                if (action != null && action.action == "open_app") {
+                    executeAction(action)
+                    return@post
+                }
+
+                speakAndResume(result.reply)
             }
+        }
+    }
+
+    private fun handleConfirmation(text: String) {
+        processing = true
+        voiceEngine?.stopListening()
+
+        val yesWords = listOf(
+            "हाँ", "हां", "हा", "yes", "yeah", "yep",
+            "ଁ", "ହଁ", "ହଁ ହଁ", "କର"
+        )
+
+        val noWords = listOf(
+            "नहीं", "नही", "ना", "no", "nope",
+            "ନା", "ନାହିଁ", "ରଦ୍ଦ"
+        )
+
+        val saysYes = yesWords.any { text.contains(it) }
+        val saysNo = noWords.any { text.contains(it) }
+
+        when {
+            saysYes -> {
+                val action = pendingAction
+                awaitingConfirmation = false
+                pendingAction = null
+
+                if (action != null) {
+                    executeAction(action)
+                } else {
+                    speakAndResume("पुष्टि मिल गई, लेकिन काम उपलब्ध नहीं है।")
+                }
+            }
+
+            saysNo -> {
+                awaitingConfirmation = false
+                pendingAction = null
+                speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+            }
+
+            else -> {
+                speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
+            }
+        }
+    }
+
+    private fun executeAction(action: AgentStep) {
+        when (action.action) {
+            "open_app" -> openApprovedApp(action.target)
+
+            "draft_message" -> {
+                speakAndResume(
+                    "मैं संदेश तैयार कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
+                )
+            }
+
+            else -> {
+                speakAndResume("यह काम अभी उपलब्ध नहीं है।")
+            }
+        }
+    }
+
+    private fun openApprovedApp(target: String) {
+        val app = target.lowercase(Locale.ROOT).trim()
+
+        val packageName = when {
+            app.contains("whatsapp") -> "com.whatsapp"
+            app.contains("youtube") -> "com.google.android.youtube"
+            app.contains("chrome") -> "com.android.chrome"
+            app.contains("instagram") -> "com.instagram.android"
+            app.contains("settings") ||
+            app.contains("सेटिंग") -> "com.android.settings"
+            else -> null
+        }
+
+        if (packageName == null) {
+            speakAndResume("माफ कीजिए, यह ऐप अभी मेरी सूची में नहीं है।")
+            return
+        }
+
+        try {
+            val launchIntent =
+                packageManager.getLaunchIntentForPackage(packageName)
+
+            if (launchIntent == null) {
+                speakAndResume("यह ऐप फोन में नहीं मिला।")
+                return
+            }
+
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(launchIntent)
+
+            speakAndResume("${target} खोलने की कोशिश कर रहा हूँ।")
+
+        } catch (e: Exception) {
+            speakAndResume("ऐप नहीं खुल पाया। कृपया फिर कोशिश करें।")
         }
     }
 
@@ -253,12 +364,16 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             tts?.setOnUtteranceProgressListener(
                 object : UtteranceProgressListener() {
 
-                    override fun onStart(utteranceId: String?) {
-                    }
+                    override fun onStart(utteranceId: String?) {}
 
                     override fun onDone(utteranceId: String?) {
                         handler.post {
                             if (!serviceStopped) {
+                                if (awaitingConfirmation) {
+                                    processing = false
+                                    scheduleListeningRestart()
+                                    return@post
+                                }
 
                                 if (
                                     utteranceId?.startsWith("jarvis_ack_") != true
@@ -277,7 +392,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                         handler.post {
                             if (!serviceStopped) {
                                 processing = false
-                                waitingForCommand = false
                                 scheduleListeningRestart()
                             }
                         }
@@ -285,11 +399,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 }
             )
 
-            pendingSpeech?.let { message ->
+            pendingSpeech?.let {
                 pendingSpeech = null
-                speakAndResume(message)
+                speakAndResume(it)
             }
-
         } else {
             updateNotification("Speech engine unavailable")
         }
@@ -316,8 +429,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             this,
             102,
             stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return Notification.Builder(this, CHANNEL_ID)
@@ -334,10 +446,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun updateNotification(message: String) {
-        val manager =
-            getSystemService(NotificationManager::class.java)
-
-        manager.notify(
+        getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID,
             buildNotification(message)
         )
@@ -350,7 +459,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 "Jarvis Voice Service",
                 NotificationManager.IMPORTANCE_LOW
             )
-
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
@@ -358,6 +466,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun stopJarvis() {
         serviceStopped = true
+        awaitingConfirmation = false
+        pendingAction = null
         handler.removeCallbacksAndMessages(null)
 
         voiceEngine?.release()
@@ -368,11 +478,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         tts = null
 
         try {
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-            }
-        } catch (_: Exception) {
-        }
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (_: Exception) {}
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -380,6 +487,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         serviceStopped = true
+        awaitingConfirmation = false
+        pendingAction = null
         handler.removeCallbacksAndMessages(null)
 
         voiceEngine?.release()
@@ -390,11 +499,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         tts = null
 
         try {
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-            }
-        } catch (_: Exception) {
-        }
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (_: Exception) {}
 
         super.onDestroy()
     }
