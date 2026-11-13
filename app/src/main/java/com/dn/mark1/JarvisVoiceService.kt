@@ -533,46 +533,25 @@ private fun speakAndResume(message: String) {
                     override fun onStart(utteranceId: String?) {}
 
                     override fun onDone(utteranceId: String?) {
-                        handler.post {
-                            if (!serviceStopped) {
-                                if (awaitingConfirmation) {
-                                    processing = false
-                                    scheduleListeningRestart()
-                                    return@post
-                                }
+    handler.post {
+        if (!serviceStopped) {
 
-                                if (
-                                    utteranceId?.startsWith("jarvis_ack_") != true
-                                ) {
-                                    waitingForCommand = false
-                                }
-
-                                processing = false
-                                scheduleListeningRestart()
-                            }
-                        }
-                    }
-
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) {
-                        handler.post {
-                            if (!serviceStopped) {
-                                processing = false
-                                scheduleListeningRestart()
-                            }
-                        }
-                    }
-                }
-            )
-
-            pendingSpeech?.let {
-                pendingSpeech = null
-                speakAndResume(it)
+            if (utteranceId?.startsWith("jarvis_ack_") == true) {
+                startCommandListening()
+                return@post
             }
-        } else {
-            updateNotification("Speech engine unavailable")
+
+            if (awaitingConfirmation) {
+                startCommandListening()
+                return@post
+            }
+
+            waitingForCommand = false
+            processing = false
+            scheduleListeningRestart()
         }
     }
+}
 
     private fun scheduleListeningRestart() {
         if (serviceStopped) return
