@@ -245,7 +245,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val yesWords = listOf(
             "हाँ", "हां", "हा", "yes", "yeah", "yep",
-            "ଁ", "ହଁ", "ହଁ ହଁ", "କର"
+            "ହଁ", "ହଁ ହଁ", "କର"
         )
 
         val noWords = listOf(
