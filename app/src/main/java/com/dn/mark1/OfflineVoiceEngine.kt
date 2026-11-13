@@ -15,7 +15,7 @@ class OfflineVoiceEngine(
     context: Context,
     private val onText: (String) -> Unit,
     private val onFailure: (String) -> Unit,
-    private val onTimeout: () -> Unit = {}
+    private val onTimeout: () -> Unit = {},
     private val onWakeWord: () -> Unit = {}
 ) : RecognitionListener {
 
@@ -138,7 +138,30 @@ class OfflineVoiceEngine(
         }
     }
 
-    private val onWakeWord: () -> Unit = {}
+    override fun onPartialResult(hypothesis: String) {
+    if (!listening) return
+
+    try {
+        val partial = JSONObject(hypothesis)
+            .optString("partial")
+            .lowercase()
+            .trim()
+
+        val wakeWords = listOf(
+            "jarvis", "जार्विस", "जार्वीस", "जर्विस"
+        )
+
+        if (wakeWords.any { word ->
+                Regex("(^|\\s)${Regex.escape(word)}($|\\s)")
+                    .containsMatchIn(partial)
+            }
+        ) {
+            listening = false
+            onWakeWord()
+        }
+    } catch (_: Exception) {
+    }
+}
     override fun onError(e: Exception) {
         if (listening) {
             onFailure(e.message ?: "Recognition error")
