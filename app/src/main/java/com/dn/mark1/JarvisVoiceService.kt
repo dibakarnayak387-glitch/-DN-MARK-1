@@ -107,6 +107,29 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 }
             },
             onTimeout = {
+                           onTimeout = {
+                handler.post {
+                    if (!serviceStopped && !processing) {
+                        updateNotification("Restarting voice listening...")
+                        scheduleListeningRestart()
+                    }
+                }
+            },
+            onWakeWord = {
+                handler.post {
+                    if (
+                        !serviceStopped &&
+                        !processing &&
+                        !awaitingConfirmation &&
+                        !waitingForCommand
+                    ) {
+                        processing = true
+                        voiceEngine?.stopListening()
+                        waitingForCommand = true
+                        speakAndResume("जी, मैं सुन रहा हूँ।")
+                    }
+                }
+            } 
                 handler.post {
                     if (!serviceStopped && !processing) {
                         updateNotification("Restarting voice listening...")
