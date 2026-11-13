@@ -214,7 +214,66 @@ private fun handleRecognizedText(rawText: String) {
     }
 }
 
+
+private fun extractOpenAppTarget(raw: String): String? {
+    val text = raw.lowercase(Locale.ROOT)
+
+    val openWords = listOf(
+        "open", "kholo", "khol do", "khol", "chalao",
+        "launch", "start", "ओपन", "खोलो", "खोल दो",
+        "खोल", "चालू करो", "चलाओ"
+    )
+
+    if (openWords.none { text.contains(it) }) return null
+
+    val aliases = listOf(
+        "whatsapp" to listOf("whatsapp", "व्हाट्सएप", "व्हाट्स अप", "वाट्सएप"),
+        "youtube" to listOf("youtube", "यूट्यूब"),
+        "chrome" to listOf("chrome", "क्रोम"),
+        "instagram" to listOf("instagram", "इंस्टाग्राम"),
+        "facebook" to listOf("facebook", "फेसबुक"),
+        "camera" to listOf("camera", "कैमरा"),
+        "settings" to listOf("settings", "सेटिंग", "सेटिंग्स"),
+        "phone" to listOf("phone app", "फोन ऐप"),
+        "maps" to listOf("google maps", "maps", "मैप्स")
+    )
+
+    for ((target, names) in aliases) {
+        if (names.any { text.contains(it) }) return target
+    }
+
+    val cleaned = text
+        .replace(Regex("open|kholo|khol do|khol|chalao|launch|start"), " ")
+        .replace(Regex("ओपन|खोलो|खोल दो|खोल|चालू करो|चलाओ"), " ")
+        .trim()
+
+    return cleaned.takeIf { it.isNotBlank() }
+}
+
+private fun isCallRequest(raw: String): Boolean {
+    val text = raw.lowercase(Locale.ROOT)
+    return listOf(
+        "call", "कॉल", "কল", "କଲ୍",
+        "phone karna", "फोन करना", "फोन लगाना",
+        "फोन लगाओ"
+    ).any { text.contains(it) }
+}
+
 private fun askGemini(question: String) {
+    val appTarget = extractOpenAppTarget(question)
+
+    if (appTarget != null) {
+        openApprovedApp(appTarget)
+        return
+    }
+
+    if (isCallRequest(question)) {
+        speakAndResume(
+            "किसे कॉल करना है? उसका नाम या नंबर बताइए।"
+        )
+        return
+    }
+
     updateNotification("AI is thinking...")
 
     GeminiClient.sendAgent(
@@ -257,6 +316,7 @@ private fun askGemini(question: String) {
         }
     }
 }
+
 
 private fun handleConfirmation(rawText: String) {
     val normalized = rawText.lowercase(Locale.ROOT)
