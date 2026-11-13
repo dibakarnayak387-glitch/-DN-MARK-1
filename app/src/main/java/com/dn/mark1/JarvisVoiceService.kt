@@ -29,6 +29,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private val handler = Handler(Looper.getMainLooper())
 
     private var voiceEngine: OfflineVoiceEngine? = null
+    private var commandRecognizer: AndroidCommandRecognizer? = null
     private var tts: TextToSpeech? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
