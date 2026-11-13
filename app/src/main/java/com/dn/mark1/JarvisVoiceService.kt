@@ -636,7 +636,8 @@ private fun speakAndResume(message: String) {
         awaitingConfirmation = false
         pendingAction = null
         handler.removeCallbacksAndMessages(null)
-
+        commandRecognizer?.destroy()
+commandRecognizer = null
         voiceEngine?.release()
         voiceEngine = null
 
