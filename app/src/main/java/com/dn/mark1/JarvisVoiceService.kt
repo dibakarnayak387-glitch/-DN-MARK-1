@@ -308,12 +308,12 @@ private fun isCallRequest(raw: String): Boolean {
 }
 
 
+
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
 
-    
-    // YouTube search - Hindi, English and Hinglish
+    // Direct YouTube search
     val isYouTube = lowerQuestion.contains("youtube") ||
             lowerQuestion.contains("यूट्यूब")
 
@@ -323,7 +323,6 @@ private fun askGemini(question: String) {
     ).any { lowerQuestion.contains(it) }
 
     if (isYouTube && hasSearchCommand) {
-
         val query = question
             .replace(Regex("(?i)youtube|यूट्यूब"), " ")
             .replace(
@@ -358,22 +357,22 @@ private fun askGemini(question: String) {
         return
     }
 
-
     // Open installed apps
     if (appTarget != null) {
-        openApprovedApp(appTarget)
+        val opened = openApprovedApp(appTarget)
+        if (!opened) {
+            speakAndResume("यह ऐप नहीं खुल पाया।")
+        }
         return
     }
 
     // Call request
     if (isCallRequest(question)) {
-        speakAndResume(
-            "किसे कॉल करना है? उसका नाम या नंबर बताइए।"
-        )
+        speakAndResume("किसे कॉल करना है? उसका नाम या नंबर बताइए।")
         return
     }
 
-    // Gemini AI request
+    // AI agent request
     updateNotification("AI is thinking...")
 
     GeminiClient.sendAgent(
@@ -383,55 +382,47 @@ private fun askGemini(question: String) {
         handler.post {
             if (serviceStopped) return@post
 
-            if (result == null) {
+            val agentResult = result
+
+            if (agentResult == null) {
                 speakAndResume(
                     "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
                 )
                 return@post
             }
 
-            val plan = result.agentPlan
+            val plan = agentResult.agentPlan
 
-val actions = plan.steps.filter {
-    it.action == "open_app" ||
-    it.action == "youtube_search" ||
-    it.action == "draft_message"
-}
+            val actions = plan.steps.filter {
+                it.action == "open_app" ||
+                it.action == "youtube_search" ||
+                it.action == "draft_message"
+            }
 
-if (actions.isEmpty()) {
-    speakAndResume(result.reply)
-    return@post
-}
+            if (actions.isEmpty()) {
+                speakAndResume(agentResult.reply)
+                return@post
+            }
 
-if (plan.requiresConfirmation) {
-    pendingActions = actions
-    awaitingConfirmation = true
-
-    speakAndResume(
-        if (result.reply.isNotBlank()) result.reply
-        else "क्या आप इस काम की पुष्टि करते हैं?"
-    )
-    return@post
-}
-
-executePlan(actions)
+            if (plan.requiresConfirmation) {
+                pendingActions = actions
+                awaitingConfirmation = true
 
                 speakAndResume(
-                    if (result.reply.isNotBlank()) result.reply
-                    else "क्या आप इस काम की पुष्टि करते हैं?"
+                    if (agentResult.reply.isNotBlank()) {
+                        agentResult.reply
+                    } else {
+                        "क्या आप इस काम की पुष्टि करते हैं?"
+                    }
                 )
                 return@post
             }
 
-            if (action != null && action.action == "open_app") {
-                executeAction(action)
-                return@post
-            }
-
-            speakAndResume(result.reply)
+            executePlan(actions)
         }
     }
 }
+
 
 
 private fun handleConfirmation(rawText: String) {
