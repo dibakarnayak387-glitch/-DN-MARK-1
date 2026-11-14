@@ -172,6 +172,38 @@ class OfflineVoiceEngine(
             listening = false
             onWakeWord()
         }
+        private fun differsByAtMostOneCharacter(
+    first: String,
+    second: String
+): Boolean {
+    if (kotlin.math.abs(first.length - second.length) > 1) return false
+
+    var i = 0
+    var j = 0
+    var edits = 0
+
+    while (i < first.length && j < second.length) {
+        if (first[i] == second[j]) {
+            i++
+            j++
+        } else {
+            edits++
+            if (edits > 1) return false
+
+            if (first.length > second.length) {
+                i++
+            } else if (second.length > first.length) {
+                j++
+            } else {
+                i++
+                j++
+            }
+        }
+    }
+
+    if (i < first.length || j < second.length) edits++
+    return edits <= 1
+}
     override fun onError(e: Exception) {
         if (listening) {
             onFailure(e.message ?: "Recognition error")
