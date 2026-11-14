@@ -307,10 +307,12 @@ private fun isCallRequest(raw: String): Boolean {
     ).any { text.contains(it) }
 }
 
+
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
 
+    // YouTube search
     if (
         lowerQuestion.contains("youtube") &&
         listOf("search", "find", "dhundo", "खोजो", "ढूंढो", "खोज").any {
@@ -321,13 +323,21 @@ private fun askGemini(question: String) {
             .replace(Regex("(?i)youtube"), "")
             .replace(Regex("(?i)search karo|search|find|dhundo"), "")
             .replace(Regex("(?i)khol do|kholo|open karo"), "")
-            .replace(Regex("(?i)aur"), "")
+            .replace(Regex("(?i)latest video|latest"), "")
+            .replace(Regex("(?i)chalao|play"), "")
+            .replace(Regex("(?i)\\baur\\b|\\bkarke\\b"), "")
             .replace("खोलो", "")
             .replace("खोल दो", "")
             .replace("खोजो", "")
             .replace("ढूंढो", "")
             .replace("खोज", "")
+            .replace("चलाओ", "")
             .trim()
+
+        if (query.isBlank()) {
+            speakAndResume("क्या खोज करना है, कृपया बताइए।")
+            return
+        }
 
         val opened = AndroidActionExecutor.searchYouTube(this, query)
 
@@ -337,6 +347,64 @@ private fun askGemini(question: String) {
         )
         return
     }
+
+    // Open installed apps
+    if (appTarget != null) {
+        openApprovedApp(appTarget)
+        return
+    }
+
+    // Call request
+    if (isCallRequest(question)) {
+        speakAndResume(
+            "किसे कॉल करना है? उसका नाम या नंबर बताइए।"
+        )
+        return
+    }
+
+    // Gemini AI request
+    updateNotification("AI is thinking...")
+
+    GeminiClient.sendAgent(
+        listOf(GeminiMessage("user", question))
+    ) { result, error ->
+
+        handler.post {
+            if (serviceStopped) return@post
+
+            if (result == null) {
+                speakAndResume(
+                    "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
+                )
+                return@post
+            }
+
+            val plan = result.agentPlan
+            val action = plan.steps.firstOrNull {
+                it.action == "open_app" ||
+                it.action == "draft_message"
+            }
+
+            if (plan.requiresConfirmation && action != null) {
+                pendingAction = action
+                awaitingConfirmation = true
+
+                speakAndResume(
+                    if (result.reply.isNotBlank()) result.reply
+                    else "क्या आप इस काम की पुष्टि करते हैं?"
+                )
+                return@post
+            }
+
+            if (action != null && action.action == "open_app") {
+                executeAction(action)
+                return@post
+            }
+
+            speakAndResume(result.reply)
+        }
+    }
+}
 
 
 private fun handleConfirmation(rawText: String) {
