@@ -541,11 +541,10 @@ private fun handleConfirmation(rawText: String) {
     val requested = target.trim()
 
     if (requested.isBlank()) {
-        speakAndResume("कौन सा ऐप खोलना है, कृपया उसका नाम बताइए।")
-        return
+        return false
     }
 
-    try {
+    return try {
         val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
@@ -582,28 +581,24 @@ private fun handleConfirmation(rawText: String) {
             }
         }
 
-        if (matches.isEmpty()) {
-    return false
-}
-        if (matches.size > 1) {
-    return false
-}
+        if (matches.size != 1) {
+            false
+        } else {
+            val selected = matches.first()
+            val launchIntent =
+                packageManager.getLaunchIntentForPackage(selected.second)
 
-        val selected = matches.first()
-        val launchIntent =
-            packageManager.getLaunchIntentForPackage(selected.second)
-
-        if (launchIntent == null) {
-    return false
-}
-
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(launchIntent)
-
-return true
-
-    } } catch (e: Exception) {
-    return false
+            if (launchIntent == null) {
+                false
+            } else {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(launchIntent)
+                true
+            }
+        }
+    } catch (e: Exception) {
+        false
+    }
 }
 private fun speakAndResume(message: String) {
     if (serviceStopped) return
