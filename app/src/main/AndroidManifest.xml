@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -7,8 +8,8 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
         <intent>
-    <action android:name="android.speech.RecognitionService" />
-</intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
     </queries>
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -26,16 +27,18 @@
         <activity
             android:name="com.dn.mark1.MainActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
         <service
-                    <service
+            android:name=".JarvisVoiceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <service
             android:name=".Mark1VoiceInteractionService"
             android:label="D.N. MARK 1"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
@@ -52,10 +55,6 @@
             android:name=".Mark1VoiceInteractionSessionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
-            android:name=".JarvisVoiceService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
 
     </application>
-
 </manifest>
