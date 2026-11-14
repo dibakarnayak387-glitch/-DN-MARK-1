@@ -537,8 +537,7 @@ private fun handleConfirmation(rawText: String) {
         }
     )
 }
-    
-private fun openApprovedApp(target: String) {
+    private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
     if (requested.isBlank()) {
