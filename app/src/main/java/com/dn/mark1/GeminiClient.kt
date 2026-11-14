@@ -140,6 +140,7 @@ object GeminiClient {
                                     action in listOf(
                                         "answer_only",
                                         "open_app",
+                                        "youtube_search",
                                         "draft_message",
                                         "unsupported"
                                     )
