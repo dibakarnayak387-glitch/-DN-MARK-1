@@ -583,34 +583,27 @@ private fun handleConfirmation(rawText: String) {
         }
 
         if (matches.isEmpty()) {
-            speakAndResume("माफ कीजिए, यह ऐप फोन में नहीं मिला।")
-            return
-        }
-
+    return false
+}
         if (matches.size > 1) {
-            speakAndResume(
-                "इस नाम के एक से ज्यादा ऐप मिले हैं। कृपया पूरा नाम बताइए।"
-            )
-            return
-        }
+    return false
+}
 
         val selected = matches.first()
         val launchIntent =
             packageManager.getLaunchIntentForPackage(selected.second)
 
         if (launchIntent == null) {
-            speakAndResume("इस ऐप को खोलने का विकल्प उपलब्ध नहीं है।")
-            return
-        }
+    return false
+}
 
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(launchIntent)
 
-        speakAndResume("${selected.first} खोलने की कोशिश कर रहा हूँ।")
+return true
 
-    } catch (e: Exception) {
-        speakAndResume("ऐप नहीं खुल पाया। कृपया फिर कोशिश करें।")
-    }
+    } } catch (e: Exception) {
+    return false
 }
 private fun speakAndResume(message: String) {
     if (serviceStopped) return
