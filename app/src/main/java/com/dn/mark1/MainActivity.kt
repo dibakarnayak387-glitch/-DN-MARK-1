@@ -1,6 +1,7 @@
 
 package com.dn.mark1
 
+import android.app.role.RoleManager
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -31,6 +32,7 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_MICROPHONE = 103
         private const val REQUEST_NOTIFICATIONS = 104
+        private const val REQUEST_ASSISTANT_ROLE = 105
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
