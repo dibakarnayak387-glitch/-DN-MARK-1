@@ -522,34 +522,68 @@ private fun speakAndResume(message: String) {
         utteranceId
     )
 }
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            ttsReady = true
-            tts?.language = Locale("hi", "IN")
+    
+override fun onInit(status: Int) {
+    if (status == TextToSpeech.SUCCESS) {
+        ttsReady = true
+        tts?.language = Locale("hi", "IN")
 
-            tts?.setOnUtteranceProgressListener(
-                object : UtteranceProgressListener() {
+        tts?.setOnUtteranceProgressListener(
+            object : UtteranceProgressListener() {
 
-                    override fun onStart(utteranceId: String?) {}
+                override fun onStart(utteranceId: String?) {}
 
-                    override fun onDone(utteranceId: String?) {
-    handler.post {
-        if (!serviceStopped) {
+                override fun onDone(utteranceId: String?) {
+                    handler.post {
+                        if (!serviceStopped) {
 
-            if (utteranceId?.startsWith("jarvis_ack_") == true) {
-                startCommandListening()
-                return@post
+                            if (
+                                utteranceId?.startsWith("jarvis_ack_") == true
+                            ) {
+                                startCommandListening()
+                                return@post
+                            }
+
+                            if (awaitingConfirmation) {
+                                startCommandListening()
+                                return@post
+                            }
+
+                            waitingForCommand = false
+                            processing = false
+                            scheduleListeningRestart()
+                        }
+                    }
+                }
+
+                override fun onError(utteranceId: String?) {
+                    handler.post {
+                        if (!serviceStopped) {
+
+                            if (
+                                utteranceId?.startsWith("jarvis_ack_") == true ||
+                                awaitingConfirmation
+                            ) {
+                                startCommandListening()
+                                return@post
+                            }
+
+                            waitingForCommand = false
+                            processing = false
+                            scheduleListeningRestart()
+                        }
+                    }
+                }
             }
+        )
 
-            if (awaitingConfirmation) {
-                startCommandListening()
-                return@post
-            }
-
-            waitingForCommand = false
-            processing = false
-            scheduleListeningRestart()
+        pendingSpeech?.let { message ->
+            pendingSpeech = null
+            speakAndResume(message)
         }
+    } else {
+        ttsReady = false
+        updateNotification("Voice output initialization failed")
     }
 }
 
