@@ -309,89 +309,34 @@ private fun isCallRequest(raw: String): Boolean {
 
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
-val lowerQuestion = question.lowercase(Locale.ROOT)
+    val lowerQuestion = question.lowercase(Locale.ROOT)
 
-val youtubeSearchWords = listOf(
-    "search", "find", "dhundo", " खोजो",
-    "search karo", "ढूंढो", "खोज करो"
-)
+    if (
+        lowerQuestion.contains("youtube") &&
+        listOf("search", "find", "dhundo", "खोजो", "ढूंढो", "खोज").any {
+            lowerQuestion.contains(it)
+        }
+    ) {
+        val query = question
+            .replace(Regex("(?i)youtube"), "")
+            .replace(Regex("(?i)search karo|search|find|dhundo"), "")
+            .replace(Regex("(?i)khol do|kholo|open karo"), "")
+            .replace(Regex("(?i)aur"), "")
+            .replace("खोलो", "")
+            .replace("खोल दो", "")
+            .replace("खोजो", "")
+            .replace("ढूंढो", "")
+            .replace("खोज", "")
+            .trim()
 
-if (
-    lowerQuestion.contains("youtube") &&
-    youtubeSearchWords.any { lowerQuestion.contains(it) }
-) {
-    val query = question
-        .replace(Regex("(?i)youtube"), "")
-        .replace(Regex("(?i)search karo|search|find|dhundo"), "")
-        .replace("खोजो", "")
-        .replace("ढूंढो", "")
-        .trim()
+        val opened = AndroidActionExecutor.searchYouTube(this, query)
 
-    val opened = AndroidActionExecutor.searchYouTube(
-        this,
-        query
-    )
-
-    speakAndResume(
-        if (opened) "YouTube पर खोज रहा हूँ।"
-        else "YouTube नहीं खुल पाया।"
-    )
-    return
-}
-    if (appTarget != null) {
-        openApprovedApp(appTarget)
-        return
-    }
-
-    if (isCallRequest(question)) {
         speakAndResume(
-            "किसे कॉल करना है? उसका नाम या नंबर बताइए।"
+            if (opened) "YouTube पर खोज रहा हूँ।"
+            else "YouTube नहीं खुल पाया।"
         )
         return
     }
-
-    updateNotification("AI is thinking...")
-
-    GeminiClient.sendAgent(
-        listOf(GeminiMessage("user", question))
-    ) { result, error ->
-
-        handler.post {
-            if (serviceStopped) return@post
-
-            if (result == null) {
-                speakAndResume(
-                    "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
-                )
-                return@post
-            }
-
-            val plan = result.agentPlan
-            val action = plan.steps.firstOrNull {
-                it.action == "open_app" ||
-                it.action == "draft_message"
-            }
-
-            if (plan.requiresConfirmation && action != null) {
-                pendingAction = action
-                awaitingConfirmation = true
-
-                speakAndResume(
-                    if (result.reply.isNotBlank()) result.reply
-                    else "क्या आप इस काम की पुष्टि करते हैं?"
-                )
-                return@post
-            }
-
-            if (action != null && action.action == "open_app") {
-                executeAction(action)
-                return@post
-            }
-
-            speakAndResume(result.reply)
-        }
-    }
-}
 
 
 private fun handleConfirmation(rawText: String) {
