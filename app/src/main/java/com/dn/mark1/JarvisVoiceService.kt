@@ -750,7 +750,7 @@ override fun onInit(status: Int) {
     private fun stopJarvis() {
         serviceStopped = true
         awaitingConfirmation = false
-        pendingAction = null
+        pendingActions = emptyList()
         handler.removeCallbacksAndMessages(null)
         commandRecognizer?.destroy()
         commandRecognizer = null
@@ -772,7 +772,7 @@ override fun onInit(status: Int) {
     override fun onDestroy() {
         serviceStopped = true
         awaitingConfirmation = false
-        pendingAction = null
+        pendingActions = emptyList()
         handler.removeCallbacksAndMessages(null)
         commandRecognizer?.destroy()
 commandRecognizer = null
