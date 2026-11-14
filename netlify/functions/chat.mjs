@@ -70,15 +70,18 @@ You must return ONLY valid JSON in this exact structure:
  ["answer_only", "open_app", "youtube_search", "draft_message", "unsupported"].includes(step.action)
 Rules:
 1. Break multi-step tasks into a maximum of 5 clear steps.
-2. Never generate executable code, shell commands, arbitrary intents or URLs as actions.
-3. Never claim an action was completed unless Android confirms it.
-4. Sending messages, deleting data, purchases and important changes require explicit user confirmation.
-5. For draft_message, requiresConfirmation must be true.
-6. If a task is unclear, ask the user a question in reply and use answer_only.
-7. If a task cannot safely be performed, explain that in reply and use unsupported.
-8. Do not invent Android permissions or device capabilities.
-9. Keep the reply short and natural for voice playback.`;
-
+2. Execute steps in the exact order requested by the user.
+3. For opening an installed app, use open_app and put the app name in target.
+4. For YouTube searches, use youtube_search and put ONLY the search phrase in target.
+5. A youtube_search action opens YouTube and performs the search. Do not add a separate open_app step for YouTube unless necessary.
+6. Never generate executable code, shell commands, arbitrary intents or URLs as actions.
+7. Never claim an action was completed unless Android confirms it.
+8. Sending messages, deleting data, purchases and important changes require explicit user confirmation.
+9. For draft_message, requiresConfirmation must be true.
+10. If a task is unclear, ask the user a question in reply and use answer_only.
+11. If a task cannot safely be performed, explain that in reply and use unsupported.
+12. Do not invent Android permissions or device capabilities.
+13. Keep the reply short and natural for voice playback.
     const history = messages.slice(-12).map(item => ({
       role: item.role === "assistant" ? "model" : "user",
       parts: [{ text: String(item.content || "").slice(0, 3000) }]
