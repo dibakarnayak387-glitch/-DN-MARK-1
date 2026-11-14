@@ -10,7 +10,7 @@ function parseAgentOutput(raw) {
         goal: String(parsed.goal || ""),
         steps: Array.isArray(parsed.steps)
           ? parsed.steps.slice(0, 5).map(step => ({
-              action: ["answer_only", "open_app", "draft_message", "unsupported"].includes(step.action)
+              action: ["answer_only", "open_app", "youtube_search", "draft_message", "unsupported"].includes(step.action)
                 ? step.action : "unsupported",
               target: String(step.target || "").slice(0, 100),
               description: String(step.description || "").slice(0, 200)
