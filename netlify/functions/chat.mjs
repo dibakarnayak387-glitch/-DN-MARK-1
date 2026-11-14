@@ -67,12 +67,7 @@ You must return ONLY valid JSON in this exact structure:
  "confirmationReason": ""
 }
 
-Allowed actions ONLY:
-- answer_only: answer or explain something.
-- open_app: request opening an installed Android app by its ordinary app name.
-- draft_message: prepare a message but NEVER send it automatically.
-- unsupported: the phone action is not supported.
-
+ ["answer_only", "open_app", "youtube_search", "draft_message", "unsupported"].includes(step.action)
 Rules:
 1. Break multi-step tasks into a maximum of 5 clear steps.
 2. Never generate executable code, shell commands, arbitrary intents or URLs as actions.
