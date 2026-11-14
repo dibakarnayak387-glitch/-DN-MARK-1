@@ -95,6 +95,22 @@ class MainActivity : Activity() {
 
         startButton = startJarvisButton
         root.addView(startJarvisButton)
+        root.addView(space(10))
+
+val assistantButton = TextView(this).apply {
+    text = "SET AS DEFAULT ASSISTANT"
+    textSize = 14f
+    setTextColor(white)
+    gravity = Gravity.CENTER
+    setPadding(dp(12), dp(16), dp(12), dp(16))
+    background = panel()
+
+    setOnClickListener {
+        requestDefaultAssistantRole()
+    }
+}
+
+root.addView(assistantButton)
 
         root.addView(space(10))
         root.addView(text(
@@ -219,7 +235,48 @@ class MainActivity : Activity() {
 
         setContentView(scroll)
     }
+private fun requestDefaultAssistantRole() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        updateStatus("ANDROID 10 OR NEWER REQUIRED")
+        return
+    }
 
+    val roleManager = getSystemService(RoleManager::class.java)
+
+    if (!roleManager.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
+        updateStatus("ASSISTANT ROLE NOT AVAILABLE")
+        return
+    }
+
+    if (roleManager.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
+        updateStatus("JARVIS IS ALREADY DEFAULT ASSISTANT")
+        return
+    }
+
+    startActivityForResult(
+        roleManager.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT),
+        REQUEST_ASSISTANT_ROLE
+    )
+}
+
+override fun onActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+) {
+    super.onActivityResult(requestCode, resultCode, data)
+
+    if (requestCode == REQUEST_ASSISTANT_ROLE) {
+        val manager = getSystemService(RoleManager::class.java)
+
+        updateStatus(
+            if (manager.isRoleHeld(RoleManager.ROLE_ASSISTANT))
+                "D.N. MARK 1 IS DEFAULT ASSISTANT"
+            else
+                "DEFAULT ASSISTANT NOT SELECTED"
+        )
+    }
+}
     private fun requestMicrophoneAndStart() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
