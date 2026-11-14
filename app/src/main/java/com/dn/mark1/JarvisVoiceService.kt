@@ -40,7 +40,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     // Confirmation memory
     private var awaitingConfirmation = false
-    private var pendingAction: AgentStep? = null
+    private var pendingActions: List<AgentStep> = emptyList()
 
     private var pendingSpeech: String? = null
 
@@ -391,15 +391,30 @@ private fun askGemini(question: String) {
             }
 
             val plan = result.agentPlan
-            val action = plan.steps.firstOrNull {
-            it.action == "open_app" ||
-            it.action == "youtube_search" ||
-            it.action == "draft_message"
-          }   
 
-            if (plan.requiresConfirmation && action != null) {
-                pendingAction = action
-                awaitingConfirmation = true
+val actions = plan.steps.filter {
+    it.action == "open_app" ||
+    it.action == "youtube_search" ||
+    it.action == "draft_message"
+}
+
+if (actions.isEmpty()) {
+    speakAndResume(result.reply)
+    return@post
+}
+
+if (plan.requiresConfirmation) {
+    pendingActions = actions
+    awaitingConfirmation = true
+
+    speakAndResume(
+        if (result.reply.isNotBlank()) result.reply
+        else "क्या आप इस काम की पुष्टि करते हैं?"
+    )
+    return@post
+}
+
+executePlan(actions)
 
                 speakAndResume(
                     if (result.reply.isNotBlank()) result.reply
@@ -439,20 +454,20 @@ private fun handleConfirmation(rawText: String) {
 
     when {
         normalized in yesPhrases -> {
-            val action = pendingAction
+            val actions = pendingActions
+            pendingActions = emptyList()
             awaitingConfirmation = false
-            pendingAction = null
 
-            if (action != null) {
-                executeAction(action)
+            if (actions.isNotEmpty()) {
+                executePlan(actions)
             } else {
-                speakAndResume("पुष्टि मिली, लेकिन काम उपलब्ध नहीं है।")
+                speakAndResume("कोई काम बाकी नहीं है।")
             }
         }
 
         normalized in noPhrases -> {
+            pendingActions = emptyList()
             awaitingConfirmation = false
-            pendingAction = null
             speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
         }
 
@@ -462,22 +477,66 @@ private fun handleConfirmation(rawText: String) {
     }
 }
 
-    private fun executeAction(action: AgentStep) {
+    private fun executePlan(actions: List<AgentStep>) {
+    if (actions.isEmpty()) {
+        speakAndResume("करने के लिए कोई काम नहीं मिला।")
+        return
+    }
+
+    val completed = mutableListOf<String>()
+
+    for (action in actions) {
         when (action.action) {
-            "open_app" -> openApprovedApp(action.target)
+
+            "open_app" -> {
+                if (openApprovedApp(action.target)) {
+                    completed.add("${action.target} खोला")
+                } else {
+                    speakAndResume(
+                        "ऐप नहीं खुल पाया। बाकी काम रोक दिया गया।"
+                    )
+                    return
+                }
+            }
+
+            "youtube_search" -> {
+                val success = AndroidActionExecutor.searchYouTube(
+                    this,
+                    action.target
+                )
+
+                if (success) {
+                    completed.add("YouTube पर ${action.target} खोजा")
+                } else {
+                    speakAndResume(
+                        "YouTube पर खोज नहीं हो पाई।"
+                    )
+                    return
+                }
+            }
 
             "draft_message" -> {
                 speakAndResume(
-                    "मैं संदेश तैयार कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
+                    "मैं संदेश तैयार करने में मदद कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
                 )
+                return
             }
 
             else -> {
                 speakAndResume("यह काम अभी उपलब्ध नहीं है।")
+                return
             }
         }
     }
 
+    speakAndResume(
+        if (completed.isNotEmpty()) {
+            "काम पूरा करने की कोशिश की। " + completed.joinToString("। ")
+        } else {
+            "कोई काम पूरा नहीं हुआ।"
+        }
+    )
+}
     
 private fun openApprovedApp(target: String) {
     val requested = target.trim()
