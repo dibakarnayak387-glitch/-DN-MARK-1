@@ -309,7 +309,35 @@ private fun isCallRequest(raw: String): Boolean {
 
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
+val lowerQuestion = question.lowercase(Locale.ROOT)
 
+val youtubeSearchWords = listOf(
+    "search", "find", "dhundo", " खोजो",
+    "search karo", "ढूंढो", "खोज करो"
+)
+
+if (
+    lowerQuestion.contains("youtube") &&
+    youtubeSearchWords.any { lowerQuestion.contains(it) }
+) {
+    val query = question
+        .replace(Regex("(?i)youtube"), "")
+        .replace(Regex("(?i)search karo|search|find|dhundo"), "")
+        .replace("खोजो", "")
+        .replace("ढूंढो", "")
+        .trim()
+
+    val opened = AndroidActionExecutor.searchYouTube(
+        this,
+        query
+    )
+
+    speakAndResume(
+        if (opened) "YouTube पर खोज रहा हूँ।"
+        else "YouTube नहीं खुल पाया।"
+    )
+    return
+}
     if (appTarget != null) {
         openApprovedApp(appTarget)
         return
