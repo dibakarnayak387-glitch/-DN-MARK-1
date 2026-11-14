@@ -138,72 +138,78 @@ class OfflineVoiceEngine(
         }
     }
 
+    
     override fun onPartialResult(hypothesis: String) {
-    if (!listening) return
+        if (!listening) return
 
-    try {
-        val partial = JSONObject(hypothesis)
-            .optString("partial")
-            .lowercase()
-            .trim()
+        try {
+            val partial = JSONObject(hypothesis)
+                .optString("partial")
+                .lowercase()
+                .trim()
 
-                val wakeWords = setOf(
-            "jarvis", "jervis", "jarvish",
-            "जार्विस", "जार्वीस", "जर्विस", "जर्वीस",
-            "जारविस", "जारवीस"
-        )
+            val wakeWords = setOf(
+                "jarvis", "jervis", "jarvish",
+                "जार्विस", "जार्वीस", "जर्विस", "जर्वीस",
+                "जारविस", "जारवीस"
+            )
 
-        val spokenWords = partial
-            .split(Regex("\\s+"))
-            .map { it.trim().trim(',', '.', '?', '!', '।', '॥', ':', ';') }
-            .filter { it.isNotBlank() }
+            val spokenWords = partial
+                .split(Regex("\\s+"))
+                .map { it.trim().trim(',', '.', '?', '!', '।', '॥', ':', ';') }
+                .filter { it.isNotBlank() }
 
-        val wakeDetected = spokenWords.any { spoken ->
-            spoken in wakeWords ||
-                (spoken.all { it in 'a'..'z' } &&
-                    spoken.length >= 5 &&
-                    wakeWords.any { target ->
-                        target.all { it in 'a'..'z' } &&
-                            differsByAtMostOneCharacter(spoken, target)
-                    })
-        }
-
-        if (wakeDetected) {
-            listening = false
-            onWakeWord()
-        }
-        private fun differsByAtMostOneCharacter(
-    first: String,
-    second: String
-): Boolean {
-    if (kotlin.math.abs(first.length - second.length) > 1) return false
-
-    var i = 0
-    var j = 0
-    var edits = 0
-
-    while (i < first.length && j < second.length) {
-        if (first[i] == second[j]) {
-            i++
-            j++
-        } else {
-            edits++
-            if (edits > 1) return false
-
-            if (first.length > second.length) {
-                i++
-            } else if (second.length > first.length) {
-                j++
-            } else {
-                i++
-                j++
+            val wakeDetected = spokenWords.any { spoken ->
+                spoken in wakeWords ||
+                    (spoken.all { it in 'a'..'z' } &&
+                        spoken.length >= 5 &&
+                        wakeWords.any { target ->
+                            target.all { it in 'a'..'z' } &&
+                                differsByAtMostOneCharacter(spoken, target)
+                        })
             }
+
+            if (wakeDetected) {
+                listening = false
+                onWakeWord()
+            }
+        } catch (_: Exception) {
         }
     }
 
-    if (i < first.length || j < second.length) edits++
-    return edits <= 1
-}
+    private fun differsByAtMostOneCharacter(
+        first: String,
+        second: String
+    ): Boolean {
+        if (kotlin.math.abs(first.length - second.length) > 1) return false
+
+        var i = 0
+        var j = 0
+        var edits = 0
+
+        while (i < first.length && j < second.length) {
+            if (first[i] == second[j]) {
+                i++
+                j++
+            } else {
+                edits++
+                if (edits > 1) return false
+
+                if (first.length > second.length) {
+                    i++
+                } else if (second.length > first.length) {
+                    j++
+                } else {
+                    i++
+                    j++
+                }
+            }
+        }
+
+        if (i < first.length || j < second.length) edits++
+        return edits <= 1
+    }
+
     override fun onError(e: Exception) {
         if (listening) {
             onFailure(e.message ?: "Recognition error")
