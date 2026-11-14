@@ -147,21 +147,31 @@ class OfflineVoiceEngine(
             .lowercase()
             .trim()
 
-        val wakeWords = listOf(
-            "jarvis", "जार्विस", "जार्वीस", "जर्विस"
+                val wakeWords = setOf(
+            "jarvis", "jervis", "jarvish",
+            "जार्विस", "जार्वीस", "जर्विस", "जर्वीस",
+            "जारविस", "जारवीस"
         )
 
-        if (wakeWords.any { word ->
-                Regex("(^|\\s)${Regex.escape(word)}($|\\s)")
-                    .containsMatchIn(partial)
-            }
-        ) {
+        val spokenWords = partial
+            .split(Regex("\\s+"))
+            .map { it.trim().trim(',', '.', '?', '!', '।', '॥', ':', ';') }
+            .filter { it.isNotBlank() }
+
+        val wakeDetected = spokenWords.any { spoken ->
+            spoken in wakeWords ||
+                (spoken.all { it in 'a'..'z' } &&
+                    spoken.length >= 5 &&
+                    wakeWords.any { target ->
+                        target.all { it in 'a'..'z' } &&
+                            differsByAtMostOneCharacter(spoken, target)
+                    })
+        }
+
+        if (wakeDetected) {
             listening = false
             onWakeWord()
         }
-    } catch (_: Exception) {
-    }
-}
     override fun onError(e: Exception) {
         if (listening) {
             onFailure(e.message ?: "Recognition error")
