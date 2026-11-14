@@ -312,26 +312,36 @@ private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
 
-    // YouTube search
-    if (
-        lowerQuestion.contains("youtube") &&
-        listOf("search", "find", "dhundo", "खोजो", "ढूंढो", "खोज").any {
-            lowerQuestion.contains(it)
-        }
-    ) {
+    
+    // YouTube search - Hindi, English and Hinglish
+    val isYouTube = lowerQuestion.contains("youtube") ||
+            lowerQuestion.contains("यूट्यूब")
+
+    val hasSearchCommand = listOf(
+        "search", "find", "dhundo", "खोजो",
+        "ढूंढो", "खोज", "सर्च", "ढूंढ"
+    ).any { lowerQuestion.contains(it) }
+
+    if (isYouTube && hasSearchCommand) {
+
         val query = question
-            .replace(Regex("(?i)youtube"), "")
-            .replace(Regex("(?i)search karo|search|find|dhundo"), "")
-            .replace(Regex("(?i)khol do|kholo|open karo"), "")
-            .replace(Regex("(?i)latest video|latest"), "")
-            .replace(Regex("(?i)chalao|play"), "")
-            .replace(Regex("(?i)\\baur\\b|\\bkarke\\b"), "")
-            .replace("खोलो", "")
-            .replace("खोल दो", "")
-            .replace("खोजो", "")
-            .replace("ढूंढो", "")
-            .replace("खोज", "")
-            .replace("चलाओ", "")
+            .replace(Regex("(?i)youtube|यूट्यूब"), " ")
+            .replace(
+                Regex("(?i)search\\s*karo|search|find|dhundo"),
+                " "
+            )
+            .replace(
+                Regex("(?i)khol\\s*do|kholo|khol|open\\s*karo"),
+                " "
+            )
+            .replace(
+                Regex("(?i)\\baur\\b|\\bkarke\\b|\\bpar\\b"),
+                " "
+            )
+            .replace(
+                Regex("खोलो|खोल दो|खोल|खोजो|ढूंढो|ढूंढ|खोज|सर्च"),
+                " "
+            )
             .trim()
 
         if (query.isBlank()) {
@@ -347,6 +357,7 @@ private fun askGemini(question: String) {
         )
         return
     }
+
 
     // Open installed apps
     if (appTarget != null) {
