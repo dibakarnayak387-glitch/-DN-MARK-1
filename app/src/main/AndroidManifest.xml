@@ -35,6 +35,23 @@
         </activity>
 
         <service
+                    <service
+            android:name=".Mark1VoiceInteractionService"
+            android:label="D.N. MARK 1"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction" />
+        </service>
+
+        <service
+            android:name=".Mark1VoiceInteractionSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
             android:name=".JarvisVoiceService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
