@@ -392,9 +392,10 @@ private fun askGemini(question: String) {
 
             val plan = result.agentPlan
             val action = plan.steps.firstOrNull {
-                it.action == "open_app" ||
-                it.action == "draft_message"
-            }
+            it.action == "open_app" ||
+            it.action == "youtube_search" ||
+            it.action == "draft_message"
+          }   
 
             if (plan.requiresConfirmation && action != null) {
                 pendingAction = action
