@@ -544,10 +544,11 @@ private fun handleConfirmation(rawText: String) {
         }
 
         normalized in noPhrases -> {
-            pendingActions = emptyList()
-            awaitingConfirmation = false
-            speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
-        }
+    pendingActions = emptyList()
+    awaitingConfirmation = false
+    confirmingMemoryForget = false
+    speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+}
 
         else -> {
             speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
