@@ -4,10 +4,10 @@ package com.dn.mark1
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.BatteryManager
 
 object AndroidActionExecutor {
 
-    // YouTube search
     fun searchYouTube(context: Context, query: String): Boolean {
         if (query.isBlank()) return false
 
@@ -38,23 +38,7 @@ object AndroidActionExecutor {
         }
     }
 
-    // Open Android share screen with text
     fun shareText(context: Context, message: String): Boolean {
-        "share_text" -> {
-    val success = AndroidActionExecutor.shareText(
-        this,
-        action.target
-    )
-
-    speakAndResume(
-        if (success) {
-            "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
-        } else {
-            "शेयर नहीं हो पाया।"
-        }
-    )
-    return
-}
         if (message.isBlank()) return false
 
         return try {
@@ -72,6 +56,26 @@ object AndroidActionExecutor {
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    fun getBatteryStatus(context: Context): String {
+        return try {
+            val batteryManager = context.getSystemService(
+                Context.BATTERY_SERVICE
+            ) as BatteryManager
+
+            val level = batteryManager.getIntProperty(
+                BatteryManager.BATTERY_PROPERTY_CAPACITY
+            )
+
+            if (level in 0..100) {
+                "आपके फोन की बैटरी $level प्रतिशत है।"
+            } else {
+                "बैटरी की जानकारी उपलब्ध नहीं है।"
+            }
+        } catch (_: Exception) {
+            "बैटरी की जानकारी नहीं मिल पाई।"
         }
     }
 }
