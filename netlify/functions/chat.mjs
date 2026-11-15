@@ -1,3 +1,4 @@
+
 const ALLOWED_ACTIONS = new Set([
   "answer_only",
   "open_app",
@@ -6,14 +7,6 @@ const ALLOWED_ACTIONS = new Set([
   "share_text",
   "unsupported"
 ]);
-const ALLOWED_ACTIONS = new Set([
-  "answer_only",
-  "open_app",
-  "youtube_search",
-  "draft_message",
-  "unsupported"
-]);
-
 function parseAgentOutput(raw) {
   try {
     const cleaned = String(raw || "")
@@ -86,7 +79,7 @@ function makeSystemPrompt(memories) {
     "Return ONLY valid JSON, with no Markdown fences, using exactly this structure:",
     '{"reply":"Natural spoken response","goal":"Short user goal","steps":[{"action":"answer_only","target":"","description":"Step description"}],"requiresConfirmation":false,"confirmationReason":""}',
     "",
-    "Allowed actions: answer_only, open_app, youtube_search, draft_message, unsupported.",
+    "Allowed actions: answer_only, open_app, youtube_search, draft_message, share_text, unsupported.",
     "share_text: open Android share chooser with the exact text in target. User must select the app and recipient and manually approve sending.",
     "answer_only: answer or explain; no device action.",
     "open_app: request opening an installed Android app by its ordinary app name.",
