@@ -7,6 +7,7 @@ import android.net.Uri
 
 object AndroidActionExecutor {
 
+    // YouTube search
     fun searchYouTube(context: Context, query: String): Boolean {
         if (query.isBlank()) return false
 
@@ -17,29 +18,42 @@ object AndroidActionExecutor {
                 .appendQueryParameter("search_query", query)
                 .build()
 
-            val youtubeIntent = Intent(
-                Intent.ACTION_VIEW,
-                uri
-            ).apply {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 setPackage("com.google.android.youtube")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            if (youtubeIntent.resolveActivity(
-                    context.packageManager
-                ) != null
-            ) {
-                context.startActivity(youtubeIntent)
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
             } else {
-                val browserIntent = Intent(
-                    Intent.ACTION_VIEW,
-                    uri
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(browserIntent)
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, uri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Open Android share screen with text
+    fun shareText(context: Context, message: String): Boolean {
+        if (message.isBlank()) return false
+
+        return try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
+            context.startActivity(
+                Intent.createChooser(intent, "Share using").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
             true
         } catch (_: Exception) {
             false
