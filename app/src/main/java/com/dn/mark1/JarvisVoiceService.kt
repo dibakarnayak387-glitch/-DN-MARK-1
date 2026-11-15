@@ -460,6 +460,19 @@ private fun handleConfirmation(rawText: String) {
 
     when {
         normalized in yesPhrases -> {
+            if (confirmingMemoryForget) {
+    confirmingMemoryForget = false
+    awaitingConfirmation = false
+    pendingActions = emptyList()
+
+    val deleted = JarvisMemory.forgetAll(this)
+
+    speakAndResume(
+        if (deleted) "आपकी सभी सेव की गई मेमोरी हटा दी गई है।"
+        else "मेमोरी हटाई नहीं जा सकी।"
+    )
+    return
+}
             val actions = pendingActions
             pendingActions = emptyList()
             awaitingConfirmation = false
