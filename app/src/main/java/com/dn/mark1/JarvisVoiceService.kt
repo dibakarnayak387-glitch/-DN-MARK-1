@@ -41,6 +41,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     // Confirmation memory
     private var awaitingConfirmation = false
     private var pendingActions: List<AgentStep> = emptyList()
+    private var confirmingMemoryForget = false
 
     private var pendingSpeech: String? = null
 
