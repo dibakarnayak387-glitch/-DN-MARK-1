@@ -520,23 +520,64 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
 
 
 private fun handleConfirmation(rawText: String) {
-override fun onError(error: Int) {
-    val errorMessage = when (error) {
-        SpeechRecognizer.ERROR_NO_MATCH ->
-            "आवाज़ समझ नहीं आई।"
-        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-            "आपकी आवाज़ सुनाई नहीं दी।"
-        SpeechRecognizer.ERROR_NETWORK ->
-            "Voice recognition network error."
-        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-            "Voice recognition timeout."
-        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-            "Microphone permission नहीं मिली।"
-        else ->
-            "Voice recognition error: $error"
-    }
+    val normalized = rawText.lowercase(Locale.ROOT)
+        .trim()
+        .replace(Regex("[\\s.,!?;:।॥]+"), " ")
 
-    onError(errorMessage)
+    val words = normalized.split(" ").filter { it.isNotBlank() }
+
+    val yesWords = setOf(
+        "हाँ", "हां", "जी", "yes", "yeah", "yep",
+        "haan", "han", "okay", "ok", "ହଁ"
+    )
+
+    val noWords = setOf(
+        "नहीं", "नही", "no", "nope", "nahi", "nahin",
+        "ନା", "ନାହିଁ", "ରଦ୍ଦ"
+    )
+
+    val isYes = words.any { it in yesWords }
+    val isNo = words.any { it in noWords }
+
+    when {
+        isYes && !isNo -> {
+            if (confirmingMemoryForget) {
+                confirmingMemoryForget = false
+                awaitingConfirmation = false
+                pendingActions = emptyList()
+
+                val deleted = JarvisMemory.forgetAll(this)
+
+                speakAndResume(
+                    if (deleted) "आपकी सभी सेव की गई मेमोरी हटा दी गई है।"
+                    else "मेमोरी हटाई नहीं जा सकी।"
+                )
+                return
+            }
+
+            val actions = pendingActions
+            pendingActions = emptyList()
+            awaitingConfirmation = false
+            confirmingMemoryForget = false
+
+            if (actions.isNotEmpty()) {
+                executePlan(actions)
+            } else {
+                speakAndResume("कोई काम बाकी नहीं है।")
+            }
+        }
+
+        isNo && !isYes -> {
+            pendingActions = emptyList()
+            awaitingConfirmation = false
+            confirmingMemoryForget = false
+            speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+        }
+
+        else -> {
+            speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
+        }
+    }
 }
     private fun executePlan(actions: List<AgentStep>) {
     if (actions.isEmpty()) {
