@@ -35,7 +35,7 @@ function parseAgentOutput(raw) {
     }
 
     const executableSteps = steps.filter((step) =>
-  ["open_app", "youtube_search", "draft_message", "share_text"].includes(step.action)
+  ["open_app", "youtube_search", "draft_message", "share_text", "battery_status"].includes(step.action)
 );
 const requiresConfirmation =
   Boolean(parsed.requiresConfirmation) ||
@@ -79,7 +79,9 @@ function makeSystemPrompt(memories) {
     "Return ONLY valid JSON, with no Markdown fences, using exactly this structure:",
     '{"reply":"Natural spoken response","goal":"Short user goal","steps":[{"action":"answer_only","target":"","description":"Step description"}],"requiresConfirmation":false,"confirmationReason":""}',
     "",
-    "Allowed actions: answer_only, open_app, youtube_search, draft_message, share_text, unsupported.",
+    "Allowed actions: answer_only, open_app, youtube_search, draft_message, share_text, battery_status, unsupported.",
+"battery_status: read the phone battery percentage locally. Use an empty target.",
+"Use battery_status whenever the user asks for battery level or battery percentage.",
     "share_text: open Android share chooser with the exact text in target. User must select the app and recipient and manually approve sending.",
     "answer_only: answer or explain; no device action.",
     "open_app: request opening an installed Android app by its ordinary app name.",
