@@ -40,6 +40,21 @@ object AndroidActionExecutor {
 
     // Open Android share screen with text
     fun shareText(context: Context, message: String): Boolean {
+        "share_text" -> {
+    val success = AndroidActionExecutor.shareText(
+        this,
+        action.target
+    )
+
+    speakAndResume(
+        if (success) {
+            "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
+        } else {
+            "शेयर नहीं हो पाया।"
+        }
+    )
+    return
+}
         if (message.isBlank()) return false
 
         return try {
