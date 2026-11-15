@@ -200,7 +200,7 @@ private fun startCommandListening() {
 }
     
 private fun startWakeListening() {
-    if (serviceStopped || processing) return
+    if (serviceStopped || processing || awaitingConfirmation) return
 
     val engine = voiceEngine
 
