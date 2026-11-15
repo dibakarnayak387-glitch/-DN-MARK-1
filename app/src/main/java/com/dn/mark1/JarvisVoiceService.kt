@@ -350,21 +350,38 @@ private fun askGemini(question: String) {
     }
 
     // SMART MEMORY: Recall saved memories
-    if (
-        lowerQuestion.contains("what do you remember") ||
-        lowerQuestion.contains("tumhe kya yaad hai") ||
-        lowerQuestion.contains("memory dikhao") ||
-        lowerQuestion.contains("मेरे बारे में क्या याद") ||
-        lowerQuestion.contains("ମୋ ବିଷୟରେ କଣ ମନେ")
-    ) {
-        val memories = JarvisMemory.getAll(this)
+    
+// SMART MEMORY: Recall saved memories
+val recallPhrases = listOf(
+    "what do you remember",
+    "what do you remember about me",
+    "what are my preferences",
+    "what do you know about me",
+    "tumhe kya yaad hai",
+    "tumhe meri kya preference yaad hai",
+    "meri kya preference yaad hai",
+    "meri pasand kya hai",
+    "mujhe kya pasand hai",
+    "meri pasand yaad hai",
+    "memory dikhao",
+    "meri memory batao",
+    "मेरे बारे में क्या याद",
+    "मेरी पसंद क्या है",
+    "मुझे क्या पसंद है",
+    "मेरी पसंद बताओ",
+    "ମୋ ବିଷୟରେ କଣ ମନେ",
+    "ମୋତେ କଣ ଭଲ ଲାଗେ"
+)
 
-        speakAndResume(
-            if (memories.isEmpty()) "अभी मेरी मेमोरी खाली है।"
-            else "मुझे यह बातें याद हैं: " + memories.joinToString("। ")
-        )
-        return
-    }
+if (recallPhrases.any { lowerQuestion.contains(it) }) {
+    val memories = JarvisMemory.getAll(this)
+
+    speakAndResume(
+        if (memories.isEmpty()) "अभी मेरी मेमोरी खाली है।"
+        else "मुझे यह बातें याद हैं: " + memories.joinToString("। ")
+    )
+    return
+}
 
     // SMART MEMORY: Ask before deleting all memories
     if (
