@@ -323,6 +323,63 @@ private fun isCallRequest(raw: String): Boolean {
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
+        // SMART MEMORY: Save a preference or fact
+    val rememberPrefixes = listOf(
+        "yaad rakhna", "remember that", "remember",
+        "याद रखना", "याद रखो", "ମନେ ରଖ"
+    )
+
+    val rememberPrefix = rememberPrefixes.firstOrNull {
+        lowerQuestion.startsWith(it)
+    }
+
+    if (rememberPrefix != null) {
+        val memoryText = question
+            .substring(rememberPrefix.length)
+            .trim()
+            .removePrefix("कि")
+            .trim()
+
+        val saved = JarvisMemory.save(this, memoryText)
+
+        speakAndResume(
+            if (saved) "ठीक है, मैंने यह बात याद रख ली।"
+            else "यह जानकारी सेव नहीं हो पाई। कृपया दोबारा बताइए।"
+        )
+        return
+    }
+
+    // SMART MEMORY: Recall saved memories
+    if (
+        lowerQuestion.contains("what do you remember") ||
+        lowerQuestion.contains("tumhe kya yaad hai") ||
+        lowerQuestion.contains("memory dikhao") ||
+        lowerQuestion.contains("मेरे बारे में क्या याद") ||
+        lowerQuestion.contains("ମୋ ବିଷୟରେ କଣ ମନେ")
+    ) {
+        val memories = JarvisMemory.getAll(this)
+
+        speakAndResume(
+            if (memories.isEmpty()) "अभी मेरी मेमोरी खाली है।"
+            else "मुझे यह बातें याद हैं: " + memories.joinToString("। ")
+        )
+        return
+    }
+
+    // SMART MEMORY: Ask before deleting all memories
+    if (
+        lowerQuestion.contains("forget all memory") ||
+        lowerQuestion.contains("delete all memory") ||
+        lowerQuestion.contains("sab memory delete") ||
+        lowerQuestion.contains("सारी मेमोरी मिटा") ||
+        lowerQuestion.contains("सभी मेमोरी हटाओ")
+    ) {
+        confirmingMemoryForget = true
+        awaitingConfirmation = true
+        pendingActions = emptyList()
+        speakAndResume("क्या आप अपनी सभी सेव की गई मेमोरी हटाना चाहते हैं? पुष्टि के लिए हाँ या रद्द करने के लिए नहीं बोलिए।")
+        return
+    }
 
     // Direct YouTube search
     val isYouTube = lowerQuestion.contains("youtube") ||
