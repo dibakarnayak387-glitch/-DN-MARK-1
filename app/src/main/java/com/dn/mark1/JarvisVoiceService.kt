@@ -154,8 +154,12 @@ private fun startCommandListening() {
     if (serviceStopped) return
 
     voiceEngine?.stopListening()
-    updateNotification("Listening for your command...")
-
+    updateNotification(
+    if (awaitingConfirmation)
+        "Listening for confirmation..."
+    else
+        "Listening for your command..."
+)
     commandRecognizer?.destroy()
 
     commandRecognizer = AndroidCommandRecognizer(
