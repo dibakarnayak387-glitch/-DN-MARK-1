@@ -465,8 +465,9 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     updateNotification("AI is thinking...")
 
     GeminiClient.sendAgent(
-        listOf(GeminiMessage("user", question))
-    ) { result, error ->
+    listOf(GeminiMessage("user", question)),
+    JarvisMemory.getAll(this)
+) { result, error ->
 
         handler.post {
             if (serviceStopped) return@post
