@@ -197,22 +197,32 @@ private fun startCommandListening() {
 
     commandRecognizer?.start("hi-IN")
 }
-    private fun startWakeListening() {
-        if (serviceStopped || processing) return
+    
+private fun startWakeListening() {
+    if (serviceStopped || processing) return
 
-        try {
-            voiceEngine?.startListening()
-            updateNotification(
-                if (awaitingConfirmation)
-                    "Listening for confirmation..."
-                else
-                    "Listening for Jarvis..."
-            )
-        } catch (e: Exception) {
-            updateNotification("Voice start failed: ${e.message}")
-            scheduleListeningRestart()
-        }
+    val engine = voiceEngine
+
+    if (engine == null) {
+        updateNotification("Voice engine unavailable. Reloading...")
+        loadVoiceEngine()
+        return
     }
+
+    try {
+        engine.startListening()
+
+        updateNotification(
+            if (awaitingConfirmation)
+                "Listening for confirmation..."
+            else
+                "Listening for Jarvis..."
+        )
+    } catch (e: Exception) {
+        updateNotification("Voice start failed: ${e.message}")
+        scheduleListeningRestart()
+    }
+}
 
     
 private fun handleRecognizedText(rawText: String) {
