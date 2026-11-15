@@ -499,6 +499,7 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     it.action == "youtube_search" ||
     it.action == "share_text" ||
     it.action == "draft_message"
+    it.action == "battery_status" ||            
 }
             if (actions.isEmpty()) {
                 speakAndResume(agentResult.reply)
@@ -613,6 +614,11 @@ private fun handleConfirmation(rawText: String) {
                     this,
                     action.target
                 )
+                "battery_status" -> {
+    completed.add(
+        AndroidActionExecutor.getBatteryStatus(this)
+    )
+}
 
                 if (success) {
                     completed.add("YouTube पर ${action.target} खोजा")
