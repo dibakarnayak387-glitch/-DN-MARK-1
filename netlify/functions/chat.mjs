@@ -1,4 +1,11 @@
-
+const ALLOWED_ACTIONS = new Set([
+  "answer_only",
+  "open_app",
+  "youtube_search",
+  "draft_message",
+  "share_text",
+  "unsupported"
+]);
 const ALLOWED_ACTIONS = new Set([
   "answer_only",
   "open_app",
@@ -35,9 +42,8 @@ function parseAgentOutput(raw) {
     }
 
     const executableSteps = steps.filter((step) =>
-  ["open_app", "youtube_search", "draft_message"].includes(step.action)
+  ["open_app", "youtube_search", "draft_message", "share_text"].includes(step.action)
 );
-
 const requiresConfirmation =
   Boolean(parsed.requiresConfirmation) ||
   executableSteps.length > 1 ||
@@ -81,6 +87,7 @@ function makeSystemPrompt(memories) {
     '{"reply":"Natural spoken response","goal":"Short user goal","steps":[{"action":"answer_only","target":"","description":"Step description"}],"requiresConfirmation":false,"confirmationReason":""}',
     "",
     "Allowed actions: answer_only, open_app, youtube_search, draft_message, unsupported.",
+    "share_text: open Android share chooser with the exact text in target. User must select the app and recipient and manually approve sending.",
     "answer_only: answer or explain; no device action.",
     "open_app: request opening an installed Android app by its ordinary app name.",
     "youtube_search: open YouTube and search the plain search phrase in target.",
