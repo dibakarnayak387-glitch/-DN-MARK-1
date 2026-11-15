@@ -520,64 +520,24 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
 
 
 private fun handleConfirmation(rawText: String) {
-    val normalized = rawText.lowercase(Locale.ROOT)
-        .trim()
-        .replace(Regex("[\\s.,!?;:।॥]+"), " ")
-        .trim()
-
-    val yesPhrases = setOf(
-        "हाँ", "हां", "जी हाँ", "जी हां",
-        "yes", "yeah", "yep",
-        "ହଁ", "ହଁ ହଁ"
-    )
-
-    val noPhrases = setOf(
-        "नहीं", "नही", "जी नहीं", "जी नही",
-        "no", "nope",
-        "ନା", "ନାହିଁ", "ରଦ୍ଦ"
-    )
-
-    when {
-        normalized in yesPhrases -> {
-            if (confirmingMemoryForget) {
-    confirmingMemoryForget = false
-    awaitingConfirmation = false
-    pendingActions = emptyList()
-    confirmingMemoryForget = false
-
-    val deleted = JarvisMemory.forgetAll(this)
-
-    speakAndResume(
-        if (deleted) "आपकी सभी सेव की गई मेमोरी हटा दी गई है।"
-        else "मेमोरी हटाई नहीं जा सकी।"
-    )
-    return
-}
-            val actions = pendingActions
-            pendingActions = emptyList()
-            awaitingConfirmation = false
-            confirmingMemoryForget = false
-
-            if (actions.isNotEmpty()) {
-                executePlan(actions)
-            } else {
-                speakAndResume("कोई काम बाकी नहीं है।")
-            }
-        }
-
-        normalized in noPhrases -> {
-    pendingActions = emptyList()
-    awaitingConfirmation = false
-    confirmingMemoryForget = false
-    speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
-}
-
-        else -> {
-            speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
-        }
+override fun onError(error: Int) {
+    val errorMessage = when (error) {
+        SpeechRecognizer.ERROR_NO_MATCH ->
+            "आवाज़ समझ नहीं आई।"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+            "आपकी आवाज़ सुनाई नहीं दी।"
+        SpeechRecognizer.ERROR_NETWORK ->
+            "Voice recognition network error."
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+            "Voice recognition timeout."
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+            "Microphone permission नहीं मिली।"
+        else ->
+            "Voice recognition error: $error"
     }
-}
 
+    onError(errorMessage)
+}
     private fun executePlan(actions: List<AgentStep>) {
     if (actions.isEmpty()) {
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
