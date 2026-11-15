@@ -495,11 +495,11 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
             val plan = agentResult.agentPlan
 
             val actions = plan.steps.filter {
-                it.action == "open_app" ||
-                it.action == "youtube_search" ||
-                it.action == "draft_message"
-            }
-
+    it.action == "open_app" ||
+    it.action == "youtube_search" ||
+    it.action == "share_text" ||
+    it.action == "draft_message"
+}
             if (actions.isEmpty()) {
                 speakAndResume(agentResult.reply)
                 return@post
