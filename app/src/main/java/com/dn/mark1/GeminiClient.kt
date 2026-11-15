@@ -161,6 +161,12 @@ object GeminiClient {
                                         "open_app",
                                         "youtube_search",
                                         "draft_message",
+                                        "unsupported"   
+                                        "answer_only",
+                                        "open_app",
+                                        "youtube_search",
+                                        "draft_message",
+                                        "share_text",
                                         "unsupported"
                                     )
                                 ) action else "unsupported"
