@@ -162,6 +162,7 @@ object GeminiClient {
         "youtube_search",
         "draft_message",
         "share_text",
+        "battery_status",
         "unsupported"
     )
 ) action else "unsupported"
