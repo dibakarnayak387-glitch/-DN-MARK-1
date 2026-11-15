@@ -521,7 +521,6 @@ private fun handleConfirmation(rawText: String) {
     confirmingMemoryForget = false
     awaitingConfirmation = false
     pendingActions = emptyList()
-    confirmingMemoryForget = false
 
     val deleted = JarvisMemory.forgetAll(this)
 
@@ -534,6 +533,7 @@ private fun handleConfirmation(rawText: String) {
             val actions = pendingActions
             pendingActions = emptyList()
             awaitingConfirmation = false
+            confirmingMemoryForget = false
 
             if (actions.isNotEmpty()) {
                 executePlan(actions)
