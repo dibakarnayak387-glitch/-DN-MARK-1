@@ -624,14 +624,20 @@ private fun handleConfirmation(rawText: String) {
                 }
             }
             "share_text" -> {
-    val success = AndroidActionExecutor.shareText(this, action.target)
-    if (success) {
-        "शेयर करने का विकल्प खोल दिया गया है।"
-    } else {
-        "शेयर नहीं हो पाया।"
-    }
-}
+    val success = AndroidActionExecutor.shareText(
+        this,
+        action.target
+    )
 
+    speakAndResume(
+        if (success) {
+            "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
+        } else {
+            "शेयर नहीं हो पाया।"
+        }
+    )
+    return
+}
             "draft_message" -> {
                 speakAndResume(
                     "मैं संदेश तैयार करने में मदद कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
