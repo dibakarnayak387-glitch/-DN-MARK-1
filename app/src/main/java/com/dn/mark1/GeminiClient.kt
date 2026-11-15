@@ -48,7 +48,7 @@ object GeminiClient {
         .callTimeout(100, TimeUnit.SECONDS)
         .build()
 
-    // Old interface retained for existing code.
+    // पुराने interface को सुरक्षित रखा गया है।
     fun send(
         messages: List<GeminiMessage>,
         onResult: (String?, String?) -> Unit
@@ -58,9 +58,18 @@ object GeminiClient {
         }
     }
 
-    // New Agent interface.
+    // पुराने Agent interface को भी सुरक्षित रखा गया है।
     fun sendAgent(
         messages: List<GeminiMessage>,
+        onResult: (GeminiResult?, String?) -> Unit
+    ) {
+        sendAgent(messages, emptyList(), onResult)
+    }
+
+    // नया interface: AI को saved memories भेजने के लिए।
+    fun sendAgent(
+        messages: List<GeminiMessage>,
+        memories: List<String>,
         onResult: (GeminiResult?, String?) -> Unit
     ) {
         try {
@@ -74,8 +83,17 @@ object GeminiClient {
                 )
             }
 
+            val memoryArray = JSONArray()
+
+            memories.take(100).forEach { memory ->
+                if (memory.isNotBlank()) {
+                    memoryArray.put(memory.take(300))
+                }
+            }
+
             val json = JSONObject()
                 .put("messages", messageArray)
+                .put("memories", memoryArray)
                 .toString()
 
             val body = json.toRequestBody(
@@ -117,9 +135,10 @@ object GeminiClient {
                                 return
                             }
 
+                            // Nested और पुराने flat दोनों formats पढ़ें।
                             val planJson =
                                 jsonResponse.optJSONObject("agentPlan")
-                                    ?: JSONObject()
+                                    ?: jsonResponse
 
                             val stepsJson =
                                 planJson.optJSONArray("steps")
@@ -164,13 +183,14 @@ object GeminiClient {
                                     planJson.optString("confirmationReason")
                             )
 
-                            val result = GeminiResult(
-                                reply = reply,
-                                agentPlan = plan,
-                                provider = jsonResponse.optString("provider")
+                            onResult(
+                                GeminiResult(
+                                    reply = reply,
+                                    agentPlan = plan,
+                                    provider = jsonResponse.optString("provider")
+                                ),
+                                null
                             )
-
-                            onResult(result, null)
 
                         } catch (e: Exception) {
                             onResult(null, "Invalid server response")
