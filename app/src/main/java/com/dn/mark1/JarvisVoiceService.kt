@@ -322,11 +322,18 @@ private fun isCallRequest(raw: String): Boolean {
     ).any { text.contains(it) }
 }
 
+private fun isMultiStepRequest(raw: String): Boolean {
+    val text = raw.lowercase(Locale.ROOT)
 
+    return Regex(
+        "\\b(aur|and|then|phir|fir|uske baad|after that|also)\\b|और|फिर|उसके बाद|ଏବଂ|ତାପରେ"
+    ).containsMatchIn(text)
+}
 
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
+    val multiStepRequest = isMultiStepRequest(question)
         // SMART MEMORY: Save a preference or fact
     val rememberPrefixes = listOf(
         "yaad rakhna", "remember that", "remember",
@@ -411,7 +418,7 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
         "ढूंढो", "खोज", "सर्च", "ढूंढ"
     ).any { lowerQuestion.contains(it) }
 
-    if (isYouTube && hasSearchCommand) {
+    if (isYouTube && hasSearchCommand && !multiStepRequest) {
         val query = question
             .replace(Regex("(?i)youtube|यूट्यूब"), " ")
             .replace(
@@ -447,7 +454,7 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     }
 
     // Open installed apps
-    if (appTarget != null) {
+    if (appTarget != null && !multiStepRequest) {
     val opened = openApprovedApp(appTarget)
 
     if (opened) {
