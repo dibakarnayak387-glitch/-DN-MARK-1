@@ -369,13 +369,17 @@ private fun askGemini(question: String) {
 
     // Open installed apps
     if (appTarget != null) {
-        val opened = openApprovedApp(appTarget)
-        if (!opened) {
-            speakAndResume("यह ऐप नहीं खुल पाया।")
-        }
-        return
+    val opened = openApprovedApp(appTarget)
+
+    if (opened) {
+        updateNotification("App opened. Restarting voice listening...")
+        scheduleListeningRestart()
+    } else {
+        speakAndResume("यह ऐप नहीं खुल पाया।")
     }
 
+    return
+}
     // Call request
     if (isCallRequest(question)) {
         speakAndResume("किसे कॉल करना है? उसका नाम या नंबर बताइए।")
