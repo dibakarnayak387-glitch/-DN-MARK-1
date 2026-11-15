@@ -43,9 +43,23 @@ class AndroidCommandRecognizer(
             override fun onEvent(eventType: Int, params: Bundle?) {}
 
             override fun onError(error: Int) {
-                onError("Voice recognition error: $error")
-            }
+    val errorMessage = when (error) {
+        SpeechRecognizer.ERROR_NO_MATCH ->
+            "आवाज़ समझ नहीं आई।"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+            "आपकी आवाज़ सुनाई नहीं दी।"
+        SpeechRecognizer.ERROR_NETWORK ->
+            "Voice recognition network error."
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+            "Voice recognition timeout."
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+            "Microphone permission नहीं मिली।"
+        else ->
+            "Voice recognition error: $error"
+    }
 
+    onError(errorMessage)
+}
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(
                     SpeechRecognizer.RESULTS_RECOGNITION
