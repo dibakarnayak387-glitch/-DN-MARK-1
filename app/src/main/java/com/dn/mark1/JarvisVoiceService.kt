@@ -208,7 +208,7 @@ private fun startCommandListening() {
         }
     )
 
-    commandRecognizer?.start("hi-IN")
+   commandRecognizer?.startMultilingual()
 }
     
 private fun startWakeListening() {
