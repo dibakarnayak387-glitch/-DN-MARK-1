@@ -75,7 +75,15 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
         serviceStopped = false
         if (intent?.action == ACTION_CANCEL_TASK) {
-    val cancelled = AgentTaskManager.cancelCurrent()
+    val cancelled = AgentTaskManager.cancelCurrent(
+    "यूज़र ने notification से task cancel किया।"
+)
+
+if (cancelled) {
+    AgentTaskManager.snapshot()?.let { cancelledTask ->
+        TaskHistoryStore.save(this, cancelledTask)
+    }
+}
 
     if (cancelled) {
         handler.post {
@@ -910,10 +918,15 @@ private fun executePlan(actions: List<AgentStep>) {
         val step = actions[index]
 
         AgentTaskManager.update(
-            taskId,
-            index,
-            step.description.ifBlank { step.action }
-        )
+    taskId,
+    index,
+    step.description.ifBlank { step.action }
+)
+
+updateNotification(
+    "Task progress: ${index + 1}/${actions.size} — " +
+    step.description.ifBlank { step.action }
+)
 
         when (step.action) {
             "answer_only" -> {
@@ -1243,7 +1256,20 @@ override fun onInit(status: Int) {
         }
     }
 
+private fun saveInterruptedTask(reason: String) {
+    val cancelled = AgentTaskManager.cancelCurrent(reason)
+
+    if (cancelled) {
+        AgentTaskManager.snapshot()?.let { task ->
+            TaskHistoryStore.save(this, task)
+        }
+    }
+}
+
     private fun stopJarvis() {
+        saveInterruptedTask(
+    "Jarvis service बंद होने के कारण task बीच में रुक गया।"
+)
         serviceStopped = true
         awaitingConfirmation = false
         pendingActions = emptyList()
@@ -1266,6 +1292,9 @@ override fun onInit(status: Int) {
     }
 
     override fun onDestroy() {
+        saveInterruptedTask(
+    "Jarvis service बंद होने के कारण task बीच में रुक गया।"
+)
         serviceStopped = true
         awaitingConfirmation = false
         pendingActions = emptyList()
