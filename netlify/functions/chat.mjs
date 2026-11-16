@@ -52,9 +52,10 @@ const executableSteps = steps.filter((step) =>
   ].includes(step.action)
 );
 
-  ].includes(step.action)
-);.includes(step.action)
-);
+const requiresConfirmation =
+  Boolean(parsed.requiresConfirmation) ||
+  executableSteps.length > 1 ||
+  steps.some((step) => step.action === "draft_message");
 const requiresConfirmation =
   Boolean(parsed.requiresConfirmation) ||
   executableSteps.length > 1 ||
