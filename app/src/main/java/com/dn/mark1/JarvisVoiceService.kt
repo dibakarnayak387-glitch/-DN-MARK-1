@@ -581,13 +581,14 @@ while (conversationHistory.size > 12) {
 
             val plan = agentResult.agentPlan
 
-            val actions = plan.steps.filter {
-            it.action == "open_app" ||
-            it.action == "youtube_search" ||
-            it.action == "share_text" ||
-            it.action == "draft_message" ||
-            it.action == "battery_status"
-        }
+           val actions = plan.steps.filter {
+    it.action == "open_app" ||
+    it.action == "youtube_search" ||
+    it.action == "share_text" ||
+    it.action == "draft_message" ||
+    it.action == "battery_status" ||
+    it.action == "weather"
+}
             if (actions.isEmpty()) {
                 speakAndResume(agentResult.reply)
                 return@post
