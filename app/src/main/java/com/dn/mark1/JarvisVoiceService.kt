@@ -786,22 +786,34 @@ private fun executePlan(actions: List<AgentStep>) {
 )
 
     fun finishPlan() {
-        val summary = if (results.isEmpty()) {
-            "कोई काम पूरा नहीं हुआ।"
-        } else {
-            results.joinToString("। ")
-        }
-
-        conversationHistory.add(
-            GeminiMessage("assistant", "टास्क रिपोर्ट: $summary")
-        )
-
-        while (conversationHistory.size > 12) {
-            conversationHistory.removeAt(0)
-        }
-        AgentTaskManager.complete(taskId, summary)
-        speakAndResume(summary)
+    if (AgentTaskManager.isCancelled(taskId)) {
+        updateNotification("Task cancelled")
+        return
     }
+
+    val summary = if (results.isEmpty()) {
+        "कोई काम पूरा नहीं हुआ।"
+    } else {
+        results.joinToString("। ")
+    }
+
+    val completed = AgentTaskManager.complete(taskId, summary)
+
+    if (!completed) {
+        updateNotification("Task cancelled")
+        return
+    }
+
+    conversationHistory.add(
+        GeminiMessage("assistant", "टास्क रिपोर्ट: $summary")
+    )
+
+    while (conversationHistory.size > 12) {
+        conversationHistory.removeAt(0)
+    }
+
+    speakAndResume(summary)
+}
 
     fun runStep(index: Int) {
         if (serviceStopped) return
