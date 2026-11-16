@@ -144,38 +144,34 @@ object GeminiClient {
                                 planJson.optJSONArray("steps")
                                     ?: JSONArray()
 
-                            val steps = mutableListOf<AgentStep>()
+                            
+val rawSteps = mutableListOf<AgentStep>()
 
-                            for (i in 0 until minOf(stepsJson.length(), 5)) {
-                                val step = stepsJson.optJSONObject(i)
-                                    ?: continue
+for (i in 0 until minOf(stepsJson.length(), 5)) {
+    val step = stepsJson.optJSONObject(i)
+        ?: continue
 
-                                val action = step.optString(
-                                    "action",
-                                    "unsupported"
-                                )
-
-                                val safeAction = if (
-    action in listOf(
-        "answer_only",
-"open_app",
-"youtube_search",
-"web_search",
-"draft_message",
-"share_text",
-"battery_status",
-"weather",
-"unsupported"
+    rawSteps.add(
+        AgentStep(
+            action = step.optString(
+                "action",
+                "unsupported"
+            ),
+            target = step.optString("target"),
+            description = step.optString("description")
+        )
     )
-) action else "unsupported"
-                                steps.add(
-                                    AgentStep(
-                                        action = safeAction,
-                                        target = step.optString("target"),
-                                        description = step.optString("description")
-                                    )
-                                )
-                            }
+}
+
+val plan = AgentPlanEngine.normalize(
+    goal = planJson.optString("goal"),
+    inputSteps = rawSteps,
+    confirmationRequired =
+        planJson.optBoolean("requiresConfirmation"),
+    confirmationReason =
+        planJson.optString("confirmationReason")
+)
+
 
                             val plan = AgentPlan(
                                 goal = planJson.optString("goal"),
