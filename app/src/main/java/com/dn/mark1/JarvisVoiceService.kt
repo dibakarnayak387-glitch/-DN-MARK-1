@@ -429,6 +429,41 @@ if (
         )
         return
     }
+    // Delete one matching saved memory
+val forgetOnePrefixes = listOf(
+    "forget memory",
+    "delete memory",
+    "remove memory",
+    "ek memory hatao",
+    "ek baat bhool jao",
+    "एक मेमोरी हटाओ",
+    "एक बात भूल जाओ",
+    "ମନେ ରଖିଥିବା କଥା ହଟାଅ"
+)
+
+val forgetPrefix = forgetOnePrefixes.firstOrNull {
+    lowerQuestion.startsWith(it)
+}
+
+if (forgetPrefix != null) {
+    val query = question
+        .substring(forgetPrefix.length)
+        .trim()
+        .removePrefix("कि")
+        .trim()
+
+    if (query.isBlank()) {
+        speakAndResume("कौन सी याद की हुई बात हटानी है?")
+    } else {
+        val removed = JarvisMemory.forgetMatching(this, query)
+
+        speakAndResume(
+            if (removed) "वह याद की हुई बात हटा दी गई।"
+            else "उससे मिलती हुई कोई मेमोरी नहीं मिली।"
+        )
+    }
+    return
+}
 
     // SMART MEMORY: Recall saved memories
     
