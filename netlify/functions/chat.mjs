@@ -185,27 +185,27 @@ export default async (request) => {
         }));
 
         const response = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent
-          {
-            method: "POST",
-            signal: controller.signal,
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": geminiKey
-            },
-            body: JSON.stringify({
-              systemInstruction: {
-                parts: [{ text: systemPrompt }]
-              },
-              contents: geminiContents,
-              generationConfig: {
-                temperature: 0.35,
-                maxOutputTokens: 1400,
-                responseMimeType: "application/json"
-              }
-            })
-          }
-        );
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+  {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": geminiKey
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: geminiContents,
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: 1400,
+        responseMimeType: "application/json"
+      }
+    })
+  }
+);
 
         const data = await response.json().catch(() => ({}));
 
