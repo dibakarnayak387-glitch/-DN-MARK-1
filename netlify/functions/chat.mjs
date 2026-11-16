@@ -8,6 +8,7 @@ const ALLOWED_ACTIONS = new Set([
   "battery_status",
   "weather",
   "unsupported"
+   "web_search",
 ]);
 function parseAgentOutput(raw) {
   try {
@@ -44,6 +45,7 @@ function parseAgentOutput(raw) {
     "share_text",
     "battery_status",
     "weather"
+     "web_search",
   ].includes(step.action)
 );.includes(step.action)
 );
@@ -102,6 +104,9 @@ function makeSystemPrompt(memories) {
     "weather: get current weather for the city named in target. Put only the city name in target.",
 "Use weather whenever the user asks about current weather, temperature, rain, humidity, or wind.",
 "Ask one short question if the city is missing. Do not guess the user's location.",
+    "web_search: open a browser search for the user's query. Put only the search phrase in target.",
+"Use web_search when the user asks to search the internet, find information online, or look something up.",
+"web_search opens search results only. Never claim that you read a page unless its contents were actually provided.",
     "Safety rules:",
     "1. Plan at most 5 steps. Use only the allowed actions.",
     "2. Keep steps in the exact order needed. Never claim the phone has already performed a step.",
