@@ -37,7 +37,15 @@ function parseAgentOutput(raw) {
     }
 
     const executableSteps = steps.filter((step) =>
-  ["open_app", "youtube_search", "draft_message", "share_text", "battery_status"].includes(step.action)
+  [
+    "open_app",
+    "youtube_search",
+    "draft_message",
+    "share_text",
+    "battery_status",
+    "weather"
+  ].includes(step.action)
+);.includes(step.action)
 );
 const requiresConfirmation =
   Boolean(parsed.requiresConfirmation) ||
