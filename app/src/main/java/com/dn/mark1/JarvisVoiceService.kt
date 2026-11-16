@@ -1085,42 +1085,43 @@ override fun onInit(status: Int) {
     }
 
     private fun buildNotification(message: String): Notification {
-        val stopIntent = Intent(this, JarvisVoiceService::class.java)
-            .setAction(ACTION_STOP)
+    val stopIntent = Intent(this, JarvisVoiceService::class.java)
+        .setAction(ACTION_STOP)
 
-        val stopPendingIntent = PendingIntent.getService(
-            this,
-            102,
-            stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    val stopPendingIntent = PendingIntent.getService(
+        this,
+        102,
+        stopIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val cancelIntent = Intent(this, JarvisVoiceService::class.java)
+        .setAction(ACTION_CANCEL_TASK)
+
+    val cancelPendingIntent = PendingIntent.getService(
+        this,
+        103,
+        cancelIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    return Notification.Builder(this, CHANNEL_ID)
+        .setContentTitle("D.N. MARK 1")
+        .setContentText(message)
+        .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+        .setOngoing(true)
+        .addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            "Cancel Task",
+            cancelPendingIntent
         )
-        val cancelIntent = Intent(this, JarvisVoiceService::class.java)
-    .setAction(ACTION_CANCEL_TASK)
-
-val cancelPendingIntent = PendingIntent.getService(
-    this,
-    103,
-    cancelIntent,
-    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-)
-
-        return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("D.N. MARK 1")
-            .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setOngoing(true)
-            .addAction(
-                android.R.drawable.ic_media_pause,
-                .addAction(
-    android.R.drawable.ic_menu_close_clear_cancel,
-    "Cancel Task",
-    cancelPendingIntent
-)
-                "Stop Jarvis",
-                stopPendingIntent
-            )
-            .build()
-    }
+        .addAction(
+            android.R.drawable.ic_media_pause,
+            "Stop Jarvis",
+            stopPendingIntent
+        )
+        .build()
+}
 
     private fun updateNotification(message: String) {
         getSystemService(NotificationManager::class.java).notify(
