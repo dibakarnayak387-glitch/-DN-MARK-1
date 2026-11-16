@@ -1,3 +1,4 @@
+
 package com.dn.mark1
 
 import java.util.UUID
@@ -13,11 +14,13 @@ data class AgentTaskSnapshot(
 )
 
 object AgentTaskManager {
+
     private var task: AgentTaskSnapshot? = null
 
     @Synchronized
     fun start(goal: String, totalSteps: Int): String {
         val id = UUID.randomUUID().toString()
+
         task = AgentTaskSnapshot(
             id = id,
             goal = goal,
@@ -36,7 +39,7 @@ object AgentTaskManager {
         if (old.id != id || old.status != "RUNNING") return
 
         task = old.copy(
-            completedSteps = index,
+            completedSteps = index.coerceIn(0, old.totalSteps),
             currentStep = description
         )
     }
@@ -59,18 +62,24 @@ object AgentTaskManager {
     fun fail(id: String, reason: String) {
         val old = task ?: return
         if (old.id != id || old.status != "RUNNING") return
-        task = old.copy(status = "FAILED", result = reason)
+
+        task = old.copy(
+            status = "FAILED",
+            result = reason
+        )
     }
 
     @Synchronized
-    fun cancelCurrent(): Boolean {
+    fun cancelCurrent(
+        reason: String = "उपयोगकर्ता ने Task Cancel किया।"
+    ): Boolean {
         val old = task ?: return false
         if (old.status != "RUNNING") return false
 
         task = old.copy(
             status = "CANCELLED",
             currentStep = "काम रद्द कर दिया गया",
-            result = "उपयोगकर्ता ने Task Cancel किया।"
+            result = reason
         )
         return true
     }
