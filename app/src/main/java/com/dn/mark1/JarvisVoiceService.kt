@@ -428,6 +428,40 @@ if (taskStatusWords.any { lowerQuestion.contains(it) }) {
     return
 }
 
+    // TASK HISTORY COMMAND
+    val historyWords = listOf(
+        "task history",
+        "show history",
+        "previous tasks",
+        "my tasks",
+        "purane task",
+        "pichle kaam",
+        "task record",
+        "टास्क हिस्ट्री",
+        "पुराने काम",
+        "पिछले काम बताओ",
+        "मेरे पुराने टास्क",
+        "କାମର ଇତିହାସ",
+        "ପୁରୁଣା କାମ"
+    )
+
+    if (historyWords.any { lowerQuestion.contains(it) }) {
+        val history = TaskHistoryStore.getAll(this)
+
+        if (history.isEmpty()) {
+            speakAndResume("अभी तक कोई पुराना टास्क रिकॉर्ड नहीं है।")
+        } else {
+            val report = history.take(5).mapIndexed { index, item ->
+                "${index + 1}. ${item.goal}. " +
+                "स्थिति ${item.status}. " +
+                "${item.completedSteps} में से ${item.totalSteps} steps पूरे हुए."
+            }.joinToString("। ")
+
+            speakAndResume("आपके पिछले टास्क ये हैं। $report")
+        }
+        return
+    }
+    
     // DIRECT BATTERY RESPONSE
 if (
     lowerQuestion.contains("battery") ||
@@ -812,11 +846,15 @@ private fun executePlan(actions: List<AgentStep>) {
     )
 
     fun finishPlan() {
-        if (AgentTaskManager.isCancelled(taskId)) {
+                if (AgentTaskManager.isCancelled(taskId)) {
+            AgentTaskManager.snapshot()?.let { cancelledTask ->
+                if (cancelledTask.id == taskId) {
+                    TaskHistoryStore.save(this@JarvisVoiceService, cancelledTask)
+                }
+            }
             updateNotification("Task cancelled")
             return
         }
-
         retryActions = failedActions.toList()
 
         val summary = buildString {
@@ -834,6 +872,11 @@ private fun executePlan(actions: List<AgentStep>) {
         }
 
         val completed = AgentTaskManager.complete(taskId, summary)
+                if (completed) {
+            AgentTaskManager.snapshot()?.let { finishedTask ->
+                TaskHistoryStore.save(this@JarvisVoiceService, finishedTask)
+            }
+                }
 
         if (!completed) {
             updateNotification("Task cancelled")
