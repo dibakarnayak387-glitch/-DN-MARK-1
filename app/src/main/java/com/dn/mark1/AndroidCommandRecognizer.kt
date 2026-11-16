@@ -19,6 +19,12 @@ class AndroidCommandRecognizer(
     private val handler = Handler(Looper.getMainLooper())
 
     private val languages = listOf("hi-IN", "en-IN", "or-IN")
+
+    companion object {
+        @Volatile
+        private var preferredLanguageIndex = 0
+    }
+
     private var languageIndex = 0
     private var multilingual = false
     private var finished = false
@@ -32,7 +38,8 @@ class AndroidCommandRecognizer(
 
     fun startMultilingual() {
         multilingual = true
-        languageIndex = 0
+        languageIndex = preferredLanguageIndex
+            .coerceIn(0, languages.lastIndex)
         finished = false
         startInternal(languages[languageIndex])
     }
@@ -67,16 +74,21 @@ class AndroidCommandRecognizer(
             override fun onError(error: Int) {
                 if (finished) return
 
-                val retryable = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                val retryable =
+                    error == SpeechRecognizer.ERROR_NO_MATCH ||
                     error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
 
-                if (multilingual && retryable && languageIndex < languages.lastIndex) {
+                if (
+                    multilingual &&
+                    retryable &&
+                    languageIndex < languages.lastIndex
+                ) {
                     languageIndex++
                     handler.postDelayed({
                         if (!finished) {
                             startInternal(languages[languageIndex])
                         }
-                    }, 250)
+                    }, 300)
                 } else {
                     val message = when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH ->
@@ -102,9 +114,14 @@ class AndroidCommandRecognizer(
                 val matches = results?.getStringArrayList(
                     SpeechRecognizer.RESULTS_RECOGNITION
                 )
+
                 val text = matches?.firstOrNull()?.trim().orEmpty()
 
                 if (text.isNotBlank()) {
+                    if (multilingual) {
+                        preferredLanguageIndex = languageIndex
+                    }
+
                     finished = true
                     onResult(text)
                 } else {
@@ -113,13 +130,18 @@ class AndroidCommandRecognizer(
             }
         })
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        val intent = Intent(
+            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        ).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(
+                RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                false
+            )
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
         }
@@ -127,7 +149,9 @@ class AndroidCommandRecognizer(
         try {
             speech.startListening(intent)
         } catch (e: Exception) {
-            finishWithError(e.message ?: "Voice recognition शुरू नहीं हुआ।")
+            finishWithError(
+                e.message ?: "Voice recognition शुरू नहीं हुआ।"
+            )
         }
     }
 
@@ -140,6 +164,7 @@ class AndroidCommandRecognizer(
 
     fun destroy() {
         finished = true
+
         if (Looper.myLooper() == Looper.getMainLooper()) {
             destroyInternal()
         } else {
