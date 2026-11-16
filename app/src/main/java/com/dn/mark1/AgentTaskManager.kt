@@ -1,4 +1,3 @@
-
 package com.dn.mark1
 
 import java.util.UUID
@@ -24,12 +23,13 @@ object AgentTaskManager {
         task = AgentTaskSnapshot(
             id = id,
             goal = goal,
-            totalSteps = totalSteps,
+            totalSteps = totalSteps.coerceAtLeast(0),
             completedSteps = 0,
             currentStep = "काम शुरू हो रहा है",
             status = "RUNNING",
             result = ""
         )
+
         return id
     }
 
@@ -46,15 +46,41 @@ object AgentTaskManager {
 
     @Synchronized
     fun complete(id: String, result: String): Boolean {
+        return finish(
+            id,
+            task?.totalSteps ?: 0,
+            result
+        )
+    }
+
+    @Synchronized
+    fun finish(
+        id: String,
+        completedSteps: Int,
+        result: String
+    ): Boolean {
         val old = task ?: return false
         if (old.id != id || old.status != "RUNNING") return false
 
+        val completed = completedSteps.coerceIn(0, old.totalSteps)
+
+        val finalStatus = when {
+            completed >= old.totalSteps -> "COMPLETED"
+            completed > 0 -> "PARTIAL"
+            else -> "FAILED"
+        }
+
         task = old.copy(
-            completedSteps = old.totalSteps,
-            currentStep = "सभी काम पूरे हुए",
-            status = "COMPLETED",
+            completedSteps = completed,
+            currentStep = when (finalStatus) {
+                "COMPLETED" -> "सभी काम पूरे हुए"
+                "PARTIAL" -> "कुछ काम पूरे हुए"
+                else -> "काम पूरा नहीं हो पाया"
+            },
+            status = finalStatus,
             result = result
         )
+
         return true
     }
 
@@ -64,6 +90,7 @@ object AgentTaskManager {
         if (old.id != id || old.status != "RUNNING") return
 
         task = old.copy(
+            currentStep = "काम असफल हुआ",
             status = "FAILED",
             result = reason
         )
@@ -77,10 +104,11 @@ object AgentTaskManager {
         if (old.status != "RUNNING") return false
 
         task = old.copy(
-            status = "CANCELLED",
             currentStep = "काम रद्द कर दिया गया",
+            status = "CANCELLED",
             result = reason
         )
+
         return true
     }
 
