@@ -849,14 +849,15 @@ private fun executePlan(actions: List<AgentStep>) {
                     }
                 )
 
-                handler.postDelayed(
+                                handler.postDelayed(
                     { runStep(index + 1) },
-                    1500            }
+                    1500
+                )
+            }
         }
     }
 }
 
-private fun openApprovedApp(target: String): Boolean {
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
