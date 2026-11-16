@@ -832,38 +832,24 @@ private fun executePlan(actions: List<AgentStep>) {
             }
 
             "share_text" -> {
-                val success = AndroidActionExecutor.shareText(
-                    this,
-                    step.target
-                )
+    val success = AndroidActionExecutor.shareText(
+        this,
+        step.target
+    )
 
-                results.add(
-                    if (success) "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
-                    else "Share chooser नहीं खुल पाया"
-                )
-
-                finishPlan()
-            }
-
-            "draft_message" -> {
-                results.add(
-                    "Message अपने-आप नहीं भेजा गया; तुम्हारी समीक्षा जरूरी है"
-                )
-                handler.post { runStep(index + 1) }
-            }
-
-            else -> {
-                results.add(
-                    "${step.description.ifBlank { step.action }} समर्थित नहीं है"
-                )
-                handler.post { runStep(index + 1) }
-            }
+    results.add(
+        if (success) {
+            "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
+        } else {
+            "Share chooser नहीं खुल पाया"
         }
-    }
+    )
 
-    runStep(0)
+    handler.postDelayed(
+        { runStep(index + 1) },
+        1500
+    )
 }
-
     private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
