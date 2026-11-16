@@ -734,6 +734,16 @@ private fun executePlan(actions: List<AgentStep>) {
                 )
                 handler.post { runStep(index + 1) }
             }
+            "weather" -> {
+    AndroidActionExecutor.getWeather(step.target) { weatherResult ->
+        handler.post {
+            if (serviceStopped) return@post
+
+            results.add(weatherResult)
+            runStep(index + 1)
+        }
+    }
+            }
 
             "open_app" -> {
                 val success = openApprovedApp(step.target)
