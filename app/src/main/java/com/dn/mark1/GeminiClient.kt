@@ -158,13 +158,14 @@ object GeminiClient {
                                 val safeAction = if (
     action in listOf(
         "answer_only",
-        "open_app",
-        "youtube_search",
-        "draft_message",
-        "share_text",
-        "battery_status",
-        "weather",
-        "unsupported"
+"open_app",
+"youtube_search",
+"web_search",
+"draft_message",
+"share_text",
+"battery_status",
+"weather",
+"unsupported"
     )
 ) action else "unsupported"
                                 steps.add(
