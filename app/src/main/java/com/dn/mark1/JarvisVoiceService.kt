@@ -1103,12 +1103,37 @@ private fun openApprovedApp(target: String): Boolean {
         false
     }
 }
+
 private fun speakAndResume(message: String) {
     if (serviceStopped) return
 
     if (!ttsReady) {
         pendingSpeech = message
         return
+    }
+
+    val odiaCount = message.count { it.code in 0x0B00..0x0B7F }
+    val hindiCount = message.count { it.code in 0x0900..0x097F }
+    val englishCount = message.count { it in 'A'..'Z' || it in 'a'..'z' }
+
+    val preferredLocale = when {
+        odiaCount > 0 -> Locale("or", "IN")
+        hindiCount > 0 -> Locale("hi", "IN")
+        englishCount > 0 -> Locale("en", "IN")
+        else -> Locale("hi", "IN")
+    }
+
+    try {
+        val result = tts?.setLanguage(preferredLocale)
+
+        if (
+            result == TextToSpeech.LANG_MISSING_DATA ||
+            result == TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
+            tts?.setLanguage(Locale("hi", "IN"))
+        }
+    } catch (_: Exception) {
+        tts?.setLanguage(Locale.getDefault())
     }
 
     val utteranceId = if (waitingForCommand) {
@@ -1124,13 +1149,12 @@ private fun speakAndResume(message: String) {
         utteranceId
     )
 }
+
     
 override fun onInit(status: Int) {
     if (status == TextToSpeech.SUCCESS) {
         ttsReady = true
-        tts?.language = Locale("hi", "IN")
-
-        tts?.setOnUtteranceProgressListener(
+  tts?.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
 
                 override fun onStart(utteranceId: String?) {}
