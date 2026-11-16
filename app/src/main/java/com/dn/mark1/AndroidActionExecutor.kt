@@ -40,6 +40,25 @@ object AndroidActionExecutor {
             false
         }
     }
+    fun searchWeb(context: Context, query: String): Boolean {
+    if (query.isBlank()) return false
+
+    return try {
+        val uri = Uri.parse("https://www.google.com/search")
+            .buildUpon()
+            .appendQueryParameter("q", query)
+            .build()
+
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        context.startActivity(intent)
+        true
+    } catch (_: Exception) {
+        false
+    }
+    }
 
     fun shareText(context: Context, message: String): Boolean {
         if (message.isBlank()) return false
