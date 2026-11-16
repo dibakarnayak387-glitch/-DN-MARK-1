@@ -22,6 +22,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     companion object {
         const val ACTION_START = "com.dn.mark1.ACTION_START_JARVIS"
         const val ACTION_STOP = "com.dn.mark1.ACTION_STOP_JARVIS"
+        const val ACTION_CANCEL_TASK =
+    "com.dn.mark1.ACTION_CANCEL_TASK"
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "dn_jarvis_voice"
     }
