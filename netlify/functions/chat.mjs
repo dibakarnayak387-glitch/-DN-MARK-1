@@ -6,6 +6,7 @@ const ALLOWED_ACTIONS = new Set([
   "draft_message",
   "share_text",
   "battery_status",
+  "weather",
   "unsupported"
 ]);
 function parseAgentOutput(raw) {
