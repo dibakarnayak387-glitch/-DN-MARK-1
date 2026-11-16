@@ -5,6 +5,7 @@ const ALLOWED_ACTIONS = new Set([
   "youtube_search",
   "draft_message",
   "share_text",
+  "battery_status",
   "unsupported"
 ]);
 function parseAgentOutput(raw) {
