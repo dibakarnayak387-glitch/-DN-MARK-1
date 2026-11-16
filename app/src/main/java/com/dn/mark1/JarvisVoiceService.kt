@@ -588,6 +588,7 @@ while (conversationHistory.size > 12) {
     it.action == "draft_message" ||
     it.action == "battery_status" ||
     it.action == "weather"
+    it.action == "web_search" ||
 }
             if (actions.isEmpty()) {
                 speakAndResume(agentResult.reply)
@@ -774,6 +775,25 @@ private fun executePlan(actions: List<AgentStep>) {
                     { runStep(index + 1) },
                     1200
                 )
+            }
+            "web_search" -> {
+    val success = AndroidActionExecutor.searchWeb(
+        this,
+        step.target
+    )
+
+    results.add(
+        if (success) {
+            "ब्राउज़र में ${step.target} की खोज खुल गई।"
+        } else {
+            "इंटरनेट खोज नहीं खुल पाई।"
+        }
+    )
+
+    handler.postDelayed(
+        { runStep(index + 1) },
+        1200
+    )
             }
 
             "share_text" -> {
