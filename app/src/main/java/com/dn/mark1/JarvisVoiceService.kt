@@ -727,6 +727,7 @@ private fun handleConfirmation(rawText: String) {
     }
 }
     
+
 private fun executePlan(actions: List<AgentStep>) {
     if (actions.isEmpty()) {
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
@@ -743,7 +744,7 @@ private fun executePlan(actions: List<AgentStep>) {
         }
 
         conversationHistory.add(
-            GeminiMessage("assistant", "टास्क execution report: $summary")
+            GeminiMessage("assistant", "टास्क रिपोर्ट: $summary")
         )
 
         while (conversationHistory.size > 12) {
@@ -764,29 +765,35 @@ private fun executePlan(actions: List<AgentStep>) {
         val step = actions[index]
 
         when (step.action) {
+            "answer_only" -> {
+                results.add(step.description)
+                runStep(index + 1)
+            }
+
             "battery_status" -> {
                 results.add(
                     AndroidActionExecutor.getBatteryStatus(this)
                 )
-                handler.post { runStep(index + 1) }
+                runStep(index + 1)
             }
-            "weather" -> {
-    AndroidActionExecutor.getWeather(step.target) { weatherResult ->
-        handler.post {
-            if (serviceStopped) return@post
 
-            results.add(weatherResult)
-            runStep(index + 1)
-        }
-    }
+            "weather" -> {
+                AndroidActionExecutor.getWeather(step.target) { report ->
+                    handler.post {
+                        if (!serviceStopped) {
+                            results.add(report)
+                            runStep(index + 1)
+                        }
+                    }
+                }
             }
 
             "open_app" -> {
                 val success = openApprovedApp(step.target)
 
                 results.add(
-                    if (success) "${step.target} ऐप खोलने का अनुरोध सफल रहा"
-                    else "${step.target} ऐप नहीं खुल पाया"
+                    if (success) "${step.target} ऐप खुल गया।"
+                    else "${step.target} ऐप नहीं खुल पाया।"
                 )
 
                 handler.postDelayed(
@@ -797,13 +804,12 @@ private fun executePlan(actions: List<AgentStep>) {
 
             "youtube_search" -> {
                 val success = AndroidActionExecutor.searchYouTube(
-                    this,
-                    step.target
+                    this, step.target
                 )
 
                 results.add(
-                    if (success) "YouTube में ${step.target} की खोज शुरू हुई"
-                    else "YouTube में खोज शुरू नहीं हो पाई"
+                    if (success) "YouTube खोज खुल गई।"
+                    else "YouTube खोज नहीं खुल पाई।"
                 )
 
                 handler.postDelayed(
@@ -811,52 +817,54 @@ private fun executePlan(actions: List<AgentStep>) {
                     1200
                 )
             }
+
             "web_search" -> {
-    val success = AndroidActionExecutor.searchWeb(
-        this,
-        step.target
-    )
+                val success = AndroidActionExecutor.searchWeb(
+                    this, step.target
+                )
 
-    results.add(
-        if (success) {
-            "ब्राउज़र में ${step.target} की खोज खुल गई।"
-        } else {
-            "इंटरनेट खोज नहीं खुल पाई।"
-        }
-    )
+                results.add(
+                    if (success) "वेब खोज खुल गई।"
+                    else "वेब खोज नहीं खुल पाई।"
+                )
 
-    handler.postDelayed(
-        { runStep(index + 1) },
-        1200
-    )
+                handler.postDelayed(
+                    { runStep(index + 1) },
+                    1200
+                )
             }
 
-                                    "share_text", "draft_message" -> {
+            "share_text", "draft_message" -> {
                 val success = AndroidActionExecutor.shareText(
-                    this,
-                    step.target
+                    this, step.target
                 )
 
                 results.add(
                     if (success) {
-                        if (step.action == "draft_message") {
-                            "संदेश तैयार है। भेजने से पहले खुद जाँचें।"
-                        } else {
-                            "Share chooser खुल गया। भेजने के लिए तुम्हारा चयन जरूरी है।"
-                        }
+                        "Share विकल्प खुल गया। संदेश जाँचकर खुद भेजें।"
                     } else {
-                        "Share chooser नहीं खुल पाया।"
+                        "Share विकल्प नहीं खुल पाया।"
                     }
                 )
 
-                                handler.postDelayed(
-                    { runStep(index + 1) },
-                    1500
+                // Share chooser खुलने के बाद अगले ऐप को अपने-आप
+                // खोलना रोकें, ताकि उपयोगकर्ता संदेश जाँच सके।
+                finishPlan()
+            }
+
+            else -> {
+                results.add(
+                    "यह काम अभी समर्थित नहीं है: ${step.description}"
                 )
+                runStep(index + 1)
             }
         }
     }
+
+    // पहले काम को वास्तव में शुरू करना जरूरी है।
+    runStep(0)
 }
+
 
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
