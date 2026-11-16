@@ -4,6 +4,7 @@ package com.dn.mark1
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -15,17 +16,37 @@ class AndroidCommandRecognizer(
     private val onError: (String) -> Unit
 ) {
     private var recognizer: SpeechRecognizer? = null
+    private val handler = Handler(Looper.getMainLooper())
+
+    private val languages = listOf("hi-IN", "en-IN", "or-IN")
+    private var languageIndex = 0
+    private var multilingual = false
+    private var finished = false
 
     fun start(language: String = "hi-IN") {
+        multilingual = false
+        languageIndex = 0
+        finished = false
+        startInternal(language)
+    }
+
+    fun startMultilingual() {
+        multilingual = true
+        languageIndex = 0
+        finished = false
+        startInternal(languages[languageIndex])
+    }
+
+    private fun startInternal(language: String) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            android.os.Handler(Looper.getMainLooper()).post {
-                start(language)
-            }
+            handler.post { startInternal(language) }
             return
         }
 
+        if (finished) return
+
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onError("Speech recognition service available nahi hai.")
+            finishWithError("Speech recognition service उपलब्ध नहीं है।")
             return
         }
 
@@ -41,39 +62,55 @@ class AndroidCommandRecognizer(
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) {}
 
             override fun onError(error: Int) {
-    val errorMessage = when (error) {
-        SpeechRecognizer.ERROR_NO_MATCH ->
-            "आवाज़ समझ नहीं आई।"
-        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-            "आपकी आवाज़ सुनाई नहीं दी।"
-        SpeechRecognizer.ERROR_NETWORK ->
-            "Voice recognition network error."
-        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-            "Voice recognition timeout."
-        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-            "Microphone permission नहीं मिली।"
-        else ->
-            "Voice recognition error: $error"
-    }
+                if (finished) return
 
-    onError(errorMessage)
-}
+                val retryable = error == SpeechRecognizer.ERROR_NO_MATCH ||
+                    error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+
+                if (multilingual && retryable && languageIndex < languages.lastIndex) {
+                    languageIndex++
+                    handler.postDelayed({
+                        if (!finished) {
+                            startInternal(languages[languageIndex])
+                        }
+                    }, 250)
+                } else {
+                    val message = when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH ->
+                            "आवाज़ समझ नहीं आई।"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+                            "आपकी आवाज़ सुनाई नहीं दी।"
+                        SpeechRecognizer.ERROR_NETWORK ->
+                            "Voice recognition network error."
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+                            "Voice recognition timeout."
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+                            "Microphone permission नहीं मिली।"
+                        else ->
+                            "Voice recognition error: $error"
+                    }
+                    finishWithError(message)
+                }
+            }
+
             override fun onResults(results: Bundle?) {
+                if (finished) return
+
                 val matches = results?.getStringArrayList(
                     SpeechRecognizer.RESULTS_RECOGNITION
                 )
                 val text = matches?.firstOrNull()?.trim().orEmpty()
 
-                if (text.isNotEmpty()) {
+                if (text.isNotBlank()) {
+                    finished = true
                     onResult(text)
                 } else {
-                    onError("Aapki awaaz samajh nahi aayi.")
+                    onError(SpeechRecognizer.ERROR_NO_MATCH)
                 }
             }
-
-            override fun onPartialResults(partialResults: Bundle?) {}
         })
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -87,16 +124,26 @@ class AndroidCommandRecognizer(
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
         }
 
-        speech.startListening(intent)
+        try {
+            speech.startListening(intent)
+        } catch (e: Exception) {
+            finishWithError(e.message ?: "Voice recognition शुरू नहीं हुआ।")
+        }
+    }
+
+    private fun finishWithError(message: String) {
+        if (finished) return
+        finished = true
+        destroyInternal()
+        onError(message)
     }
 
     fun destroy() {
+        finished = true
         if (Looper.myLooper() == Looper.getMainLooper()) {
             destroyInternal()
         } else {
-            android.os.Handler(Looper.getMainLooper()).post {
-                destroyInternal()
-            }
+            handler.post { destroyInternal() }
         }
     }
 
@@ -111,4 +158,3 @@ class AndroidCommandRecognizer(
         recognizer = null
     }
 }
-
