@@ -44,7 +44,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var awaitingConfirmation = false
     private var pendingActions: List<AgentStep> = emptyList()
     private var confirmingMemoryForget = false
-
+// Retry system: stores only failed supported actions.
+private var retryActions: List<AgentStep> = emptyList()
     private var pendingSpeech: String? = null
     // Advanced conversation context
 private val conversationHistory = mutableListOf<GeminiMessage>()
@@ -373,6 +374,28 @@ private fun extractRequestedApps(raw: String): List<String> {
     }.sortedBy { it.second }.map { it.first }
 }
 private fun askGemini(question: String) {
+        // RETRY LAST FAILED TASK
+    val retryWords = listOf(
+        "retry", "try again", "repeat failed",
+        "dobara karo", "phir se karo",
+        "फिर से करो", "दोबारा करो",
+        "पुनः प्रयास", "ପୁଣିଥରେ କର"
+    )
+
+    if (retryWords.any { lowerQuestionForRetry(question).contains(it) }) {
+        val actionsToRetry = retryActions.toList()
+
+        if (actionsToRetry.isEmpty()) {
+            speakAndResume("दोबारा चलाने के लिए कोई असफल काम उपलब्ध नहीं है।")
+        } else {
+            retryActions = emptyList()
+            speakAndResume("असफल काम दोबारा शुरू कर रहा हूँ।")
+            handler.postDelayed({
+                if (!serviceStopped) executePlan(actionsToRetry)
+            }, 700)
+        }
+        return
+    }
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
     val multiStepRequest = isMultiStepRequest(question)
@@ -773,6 +796,7 @@ private fun handleConfirmation(rawText: String) {
 }
     
 
+
 private fun executePlan(actions: List<AgentStep>) {
     if (actions.isEmpty()) {
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
@@ -780,46 +804,59 @@ private fun executePlan(actions: List<AgentStep>) {
     }
 
     val results = mutableListOf<String>()
+    val failedActions = mutableListOf<AgentStep>()
+
     val taskId = AgentTaskManager.start(
-    "Jarvis multi-step task",
-    actions.size
-)
-
-    fun finishPlan() {
-    if (AgentTaskManager.isCancelled(taskId)) {
-        updateNotification("Task cancelled")
-        return
-    }
-
-    val summary = if (results.isEmpty()) {
-        "कोई काम पूरा नहीं हुआ।"
-    } else {
-        results.joinToString("। ")
-    }
-
-    val completed = AgentTaskManager.complete(taskId, summary)
-
-    if (!completed) {
-        updateNotification("Task cancelled")
-        return
-    }
-
-    conversationHistory.add(
-        GeminiMessage("assistant", "टास्क रिपोर्ट: $summary")
+        "Jarvis multi-step task",
+        actions.size
     )
 
-    while (conversationHistory.size > 12) {
-        conversationHistory.removeAt(0)
-    }
+    fun finishPlan() {
+        if (AgentTaskManager.isCancelled(taskId)) {
+            updateNotification("Task cancelled")
+            return
+        }
 
-    speakAndResume(summary)
-}
+        retryActions = failedActions.toList()
+
+        val summary = buildString {
+            append(
+                if (results.isEmpty()) "कोई काम पूरा नहीं हुआ।"
+                else results.joinToString("। ")
+            )
+
+            if (failedActions.isNotEmpty()) {
+                append("। ${failedActions.size} काम असफल हुए।")
+                append(" आप Retry या दोबारा करो बोल सकते हैं।")
+            } else {
+                append("। सभी काम पूरे हुए।")
+            }
+        }
+
+        val completed = AgentTaskManager.complete(taskId, summary)
+
+        if (!completed) {
+            updateNotification("Task cancelled")
+            return
+        }
+
+        conversationHistory.add(
+            GeminiMessage("assistant", "टास्क रिपोर्ट: $summary")
+        )
+
+        while (conversationHistory.size > 12) {
+            conversationHistory.removeAt(0)
+        }
+
+        speakAndResume(summary)
+    }
 
     fun runStep(index: Int) {
         if (serviceStopped) return
+
         if (AgentTaskManager.isCancelled(taskId)) {
-    updateNotification("Task cancelled")
-    return
+            updateNotification("Task cancelled")
+            return
         }
 
         if (index >= actions.size) {
@@ -828,11 +865,12 @@ private fun executePlan(actions: List<AgentStep>) {
         }
 
         val step = actions[index]
+
         AgentTaskManager.update(
-    taskId,
-    index,
-    step.description.ifBlank { step.action }
-)
+            taskId,
+            index,
+            step.description.ifBlank { step.action }
+        )
 
         when (step.action) {
             "answer_only" -> {
@@ -850,7 +888,9 @@ private fun executePlan(actions: List<AgentStep>) {
             "weather" -> {
                 AndroidActionExecutor.getWeather(step.target) { report ->
                     handler.post {
-                        if (!serviceStopped) {
+                        if (!serviceStopped &&
+                            !AgentTaskManager.isCancelled(taskId)
+                        ) {
                             results.add(report)
                             runStep(index + 1)
                         }
@@ -861,10 +901,12 @@ private fun executePlan(actions: List<AgentStep>) {
             "open_app" -> {
                 val success = openApprovedApp(step.target)
 
-                results.add(
-                    if (success) "${step.target} ऐप खुल गया।"
-                    else "${step.target} ऐप नहीं खुल पाया।"
-                )
+                if (success) {
+                    results.add("${step.target} ऐप खुल गया।")
+                } else {
+                    results.add("${step.target} ऐप नहीं खुल पाया।")
+                    failedActions.add(step)
+                }
 
                 handler.postDelayed(
                     { runStep(index + 1) },
@@ -877,10 +919,12 @@ private fun executePlan(actions: List<AgentStep>) {
                     this, step.target
                 )
 
-                results.add(
-                    if (success) "YouTube खोज खुल गई।"
-                    else "YouTube खोज नहीं खुल पाई।"
-                )
+                if (success) {
+                    results.add("YouTube खोज खुल गई।")
+                } else {
+                    results.add("YouTube खोज नहीं खुल पाई।")
+                    failedActions.add(step)
+                }
 
                 handler.postDelayed(
                     { runStep(index + 1) },
@@ -893,10 +937,12 @@ private fun executePlan(actions: List<AgentStep>) {
                     this, step.target
                 )
 
-                results.add(
-                    if (success) "वेब खोज खुल गई।"
-                    else "वेब खोज नहीं खुल पाई।"
-                )
+                if (success) {
+                    results.add("वेब खोज खुल गई।")
+                } else {
+                    results.add("वेब खोज नहीं खुल पाई।")
+                    failedActions.add(step)
+                }
 
                 handler.postDelayed(
                     { runStep(index + 1) },
@@ -909,16 +955,15 @@ private fun executePlan(actions: List<AgentStep>) {
                     this, step.target
                 )
 
-                results.add(
-                    if (success) {
+                if (success) {
+                    results.add(
                         "Share विकल्प खुल गया। संदेश जाँचकर खुद भेजें।"
-                    } else {
-                        "Share विकल्प नहीं खुल पाया।"
-                    }
-                )
+                    )
+                } else {
+                    results.add("Share विकल्प नहीं खुल पाया।")
+                    failedActions.add(step)
+                }
 
-                // Share chooser खुलने के बाद अगले ऐप को अपने-आप
-                // खोलना रोकें, ताकि उपयोगकर्ता संदेश जाँच सके।
                 finishPlan()
             }
 
@@ -931,7 +976,6 @@ private fun executePlan(actions: List<AgentStep>) {
         }
     }
 
-    // पहले काम को वास्तव में शुरू करना जरूरी है।
     runStep(0)
 }
 
@@ -1200,4 +1244,7 @@ commandRecognizer = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+}
+private fun lowerQuestionForRetry(value: String): String {
+    return value.lowercase(Locale.ROOT)
 }
