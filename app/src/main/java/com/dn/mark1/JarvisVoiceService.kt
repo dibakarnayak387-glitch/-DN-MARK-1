@@ -360,6 +360,35 @@ private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
     val multiStepRequest = isMultiStepRequest(question)
+    
+// TASK STATUS COMMAND
+val taskStatusWords = listOf(
+    "task status",
+    "current task",
+    "kaam ka status",
+    "mera task batao",
+    "काम का स्टेटस",
+    "टास्क की स्थिति",
+    "अभी क्या काम चल रहा है",
+    "କାମର ସ୍ଥିତି"
+)
+
+if (taskStatusWords.any { lowerQuestion.contains(it) }) {
+    val task = AgentTaskManager.snapshot()
+
+    val message = if (task == null) {
+        "अभी कोई टास्क रिकॉर्ड नहीं है।"
+    } else {
+        "टास्क ${task.status} है। " +
+        "${task.completedSteps} में से ${task.totalSteps} काम पूरे हुए। " +
+        "अभी का काम: ${task.currentStep}। " +
+        task.result
+    }
+
+    speakAndResume(message)
+    return
+}
+
     // DIRECT BATTERY RESPONSE
 if (
     lowerQuestion.contains("battery") ||
@@ -735,6 +764,10 @@ private fun executePlan(actions: List<AgentStep>) {
     }
 
     val results = mutableListOf<String>()
+    val taskId = AgentTaskManager.start(
+    "Jarvis multi-step task",
+    actions.size
+)
 
     fun finishPlan() {
         val summary = if (results.isEmpty()) {
@@ -750,7 +783,7 @@ private fun executePlan(actions: List<AgentStep>) {
         while (conversationHistory.size > 12) {
             conversationHistory.removeAt(0)
         }
-
+        AgentTaskManager.complete(taskId, summary)
         speakAndResume(summary)
     }
 
@@ -763,6 +796,11 @@ private fun executePlan(actions: List<AgentStep>) {
         }
 
         val step = actions[index]
+        AgentTaskManager.update(
+    taskId,
+    index,
+    step.description.ifBlank { step.action }
+)
 
         when (step.action) {
             "answer_only" -> {
