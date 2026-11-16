@@ -44,6 +44,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var awaitingConfirmation = false
     private var pendingActions: List<AgentStep> = emptyList()
     private var confirmingMemoryForget = false
+    private var confirmingConversationClear = false
 // Retry system: stores only failed supported actions.
 private var retryActions: List<AgentStep> = emptyList()
     private var pendingSpeech: String? = null
