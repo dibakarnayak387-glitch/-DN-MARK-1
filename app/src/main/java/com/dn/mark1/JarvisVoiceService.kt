@@ -831,7 +831,7 @@ private fun executePlan(actions: List<AgentStep>) {
     )
             }
 
-                        "share_text" -> {
+                                    "share_text", "draft_message" -> {
                 val success = AndroidActionExecutor.shareText(
                     this,
                     step.target
@@ -839,9 +839,13 @@ private fun executePlan(actions: List<AgentStep>) {
 
                 results.add(
                     if (success) {
-                        "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
+                        if (step.action == "draft_message") {
+                            "संदेश तैयार है। भेजने से पहले खुद जाँचें।"
+                        } else {
+                            "Share chooser खुल गया। भेजने के लिए तुम्हारा चयन जरूरी है।"
+                        }
                     } else {
-                        "Share chooser नहीं खुल पाया"
+                        "Share chooser नहीं खुल पाया।"
                     }
                 )
 
@@ -850,12 +854,6 @@ private fun executePlan(actions: List<AgentStep>) {
                     1500
                 )
             }
-        }
-    }
-
-    runStep(0)
-}
-
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
