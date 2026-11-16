@@ -156,14 +156,19 @@ private fun startCommandListening() {
     if (serviceStopped) return
 
     voiceEngine?.stopListening()
-    updateNotification(
-    if (awaitingConfirmation)
-        "Listening for confirmation..."
-    else
-        "Listening for your command..."
-)
-    commandRecognizer?.destroy()
 
+    val confirmationMode = awaitingConfirmation
+
+    waitingForCommand = !confirmationMode
+
+    updateNotification(
+        if (confirmationMode)
+            "Listening for YES or NO..."
+        else
+            "Listening for your command..."
+    )
+
+    commandRecognizer?.destroy()
     commandRecognizer = AndroidCommandRecognizer(
         applicationContext,
         onResult = { recognizedText ->
@@ -181,23 +186,24 @@ private fun startCommandListening() {
                 }
             }
         },
-        onError = { error ->
+        onError = {
             handler.post {
                 if (serviceStopped) return@post
 
                 commandRecognizer?.destroy()
                 commandRecognizer = null
 
-                if (!awaitingConfirmation) {
+                if (awaitingConfirmation) {
                     waitingForCommand = false
-                }
-
-                speakAndResume(
-                    if (awaitingConfirmation)
-                        "कृपया फिर से हाँ या नहीं बोलिए।"
-                    else
+                    speakAndResume(
+                        "कृपया केवल हाँ या नहीं बोलिए।"
+                    )
+                } else {
+                    waitingForCommand = false
+                    speakAndResume(
                         "आवाज़ समझ नहीं आई। कृपया फिर बोलिए।"
-                )
+                    )
+                }
             }
         }
     )
@@ -609,18 +615,21 @@ while (conversationHistory.size > 12) {
 
 
 private fun handleConfirmation(rawText: String) {
+    if (serviceStopped || !awaitingConfirmation) return
+
     val normalized = rawText.lowercase(Locale.ROOT)
         .trim()
         .replace(Regex("[\\s.,!?;:।॥]+"), " ")
 
-    val words = normalized.split(" ").filter { it.isNotBlank() }
+    val words = normalized.split(" ")
+        .filter { it.isNotBlank() }
 
     val yesWords = setOf(
-    "हाँ", "हां", "जी", "yes", "yeah", "yep",
-    "haan", "han", "ha", "haanji", "hanji",
-    "okay", "ok", "bilkul", "confirm", "kardo",
-    "ହଁ"
-)
+        "हाँ", "हां", "जी", "yes", "yeah", "yep",
+        "haan", "han", "ha", "haanji", "hanji",
+        "okay", "ok", "bilkul", "confirm", "kardo",
+        "ହଁ"
+    )
 
     val noWords = setOf(
         "नहीं", "नही", "no", "nope", "nahi", "nahin",
@@ -640,13 +649,16 @@ private fun handleConfirmation(rawText: String) {
                 val deleted = JarvisMemory.forgetAll(this)
 
                 speakAndResume(
-                    if (deleted) "आपकी सभी सेव की गई मेमोरी हटा दी गई है।"
-                    else "मेमोरी हटाई नहीं जा सकी।"
+                    if (deleted)
+                        "आपकी सेव की गई मेमोरी हटा दी गई है।"
+                    else
+                        "मेमोरी हटाई नहीं जा सकी।"
                 )
                 return
             }
 
-            val actions = pendingActions
+            val actions = pendingActions.toList()
+
             pendingActions = emptyList()
             awaitingConfirmation = false
             confirmingMemoryForget = false
@@ -662,11 +674,18 @@ private fun handleConfirmation(rawText: String) {
             pendingActions = emptyList()
             awaitingConfirmation = false
             confirmingMemoryForget = false
+
             speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
         }
 
         else -> {
-            speakAndResume("कृपया हाँ या नहीं में जवाब दीजिए।")
+            // Confirmation mode चालू रहेगा।
+            // कोई दूसरा command execute नहीं होगा।
+            awaitingConfirmation = true
+
+            speakAndResume(
+                "मुझे केवल हाँ या नहीं बताइए।"
+            )
         }
     }
 }
