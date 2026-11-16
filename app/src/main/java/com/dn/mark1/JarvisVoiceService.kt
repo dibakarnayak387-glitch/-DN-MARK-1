@@ -670,84 +670,115 @@ private fun handleConfirmation(rawText: String) {
         }
     }
 }
-    private fun executePlan(actions: List<AgentStep>) {
+    
+private fun executePlan(actions: List<AgentStep>) {
     if (actions.isEmpty()) {
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
         return
     }
 
-    val completed = mutableListOf<String>()
+    val results = mutableListOf<String>()
 
-    for (action in actions) {
-        when (action.action) {
+    fun finishPlan() {
+        val summary = if (results.isEmpty()) {
+            "कोई काम पूरा नहीं हुआ।"
+        } else {
+            results.joinToString("। ")
+        }
 
+        conversationHistory.add(
+            GeminiMessage("assistant", "टास्क execution report: $summary")
+        )
+
+        while (conversationHistory.size > 12) {
+            conversationHistory.removeAt(0)
+        }
+
+        speakAndResume(summary)
+    }
+
+    fun runStep(index: Int) {
+        if (serviceStopped) return
+
+        if (index >= actions.size) {
+            finishPlan()
+            return
+        }
+
+        val step = actions[index]
+
+        when (step.action) {
             "battery_status" -> {
-                completed.add(
+                results.add(
                     AndroidActionExecutor.getBatteryStatus(this)
                 )
+                handler.post { runStep(index + 1) }
             }
 
             "open_app" -> {
-                if (openApprovedApp(action.target)) {
-                    completed.add("${action.target} खोला")
-                } else {
-                    speakAndResume("ऐप नहीं खुल पाया। बाकी काम रोक दिया गया।")
-                    return
-                }
+                val success = openApprovedApp(step.target)
+
+                results.add(
+                    if (success) "${step.target} ऐप खोलने का अनुरोध सफल रहा"
+                    else "${step.target} ऐप नहीं खुल पाया"
+                )
+
+                handler.postDelayed(
+                    { runStep(index + 1) },
+                    1200
+                )
             }
 
             "youtube_search" -> {
                 val success = AndroidActionExecutor.searchYouTube(
                     this,
-                    action.target
+                    step.target
                 )
 
-                if (success) {
-                    completed.add("YouTube पर ${action.target} खोजा")
-                } else {
-                    speakAndResume("YouTube पर खोज नहीं हो पाई।")
-                    return
-                }
+                results.add(
+                    if (success) "YouTube में ${step.target} की खोज शुरू हुई"
+                    else "YouTube में खोज शुरू नहीं हो पाई"
+                )
+
+                handler.postDelayed(
+                    { runStep(index + 1) },
+                    1200
+                )
             }
 
             "share_text" -> {
                 val success = AndroidActionExecutor.shareText(
                     this,
-                    action.target
+                    step.target
                 )
 
-                speakAndResume(
-                    if (success) {
-                        "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
-                    } else {
-                        "शेयर नहीं हो पाया।"
-                    }
+                results.add(
+                    if (success) "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
+                    else "Share chooser नहीं खुल पाया"
                 )
-                return
+
+                finishPlan()
             }
 
             "draft_message" -> {
-                speakAndResume(
-                    "मैं संदेश तैयार करने में मदद कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
+                results.add(
+                    "Message अपने-आप नहीं भेजा गया; तुम्हारी समीक्षा जरूरी है"
                 )
-                return
+                handler.post { runStep(index + 1) }
             }
 
             else -> {
-                speakAndResume("यह काम अभी उपलब्ध नहीं है।")
-                return
+                results.add(
+                    "${step.description.ifBlank { step.action }} समर्थित नहीं है"
+                )
+                handler.post { runStep(index + 1) }
             }
         }
     }
 
-    speakAndResume(
-        if (completed.isNotEmpty()) {
-            completed.joinToString("। ")
-        } else {
-            "कोई काम पूरा नहीं हुआ।"
-        }
-    )
+    runStep(0)
 }
+
     private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
