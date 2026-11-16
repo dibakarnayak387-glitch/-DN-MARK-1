@@ -723,7 +723,7 @@ GeminiClient.sendAgent(
 conversationHistory.add(
     GeminiMessage("assistant", agentResult.reply)
 )
-
+ConversationStore.save(this, conversationHistory)
 while (conversationHistory.size > 12) {
     conversationHistory.removeAt(0)
 }
