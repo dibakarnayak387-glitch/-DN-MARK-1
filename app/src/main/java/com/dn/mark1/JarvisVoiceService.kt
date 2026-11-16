@@ -611,7 +611,32 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     )
     return
 }
+// CONVERSATION HISTORY CLEAR WITH CONFIRMATION
+val clearConversationWords = listOf(
+    "clear conversation history",
+    "clear chat history",
+    "delete conversation history",
+    "delete chat history",
+    "purani chat delete",
+    "purani conversation hatao",
+    "बातचीत मिटाओ",
+    "पुरानी बातचीत हटाओ",
+    "चैट हिस्ट्री मिटाओ",
+    "ସମସ୍ତ କଥାବାର୍ତ୍ତା ହଟାଅ",
+    "ପୁରୁଣା ଚାଟ୍ ହଟାଅ"
+)
 
+if (clearConversationWords.any { lowerQuestion.contains(it) }) {
+    confirmingConversationClear = true
+    awaitingConfirmation = true
+    pendingActions = emptyList()
+
+    speakAndResume(
+        "क्या आप पुरानी बातचीत की हिस्ट्री मिटाना चाहते हैं? " +
+        "हाँ बोलकर पुष्टि करें या नहीं बोलकर रद्द करें।"
+    )
+    return
+}
     // SMART MEMORY: Ask before deleting all memories
     if (
         lowerQuestion.contains("forget all memory") ||
@@ -792,8 +817,24 @@ private fun handleConfirmation(rawText: String) {
 
     when {
         isYes && !isNo -> {
+            if (confirmingConversationClear) {
+    confirmingConversationClear = false
+    awaitingConfirmation = false
+    pendingActions = emptyList()
+
+    val cleared = ConversationStore.clear(this)
+
+    if (cleared) {
+        conversationHistory.clear()
+        speakAndResume("पुरानी बातचीत की हिस्ट्री मिटा दी गई है।")
+    } else {
+        speakAndResume("बातचीत की हिस्ट्री नहीं मिट पाई।")
+    }
+    return
+            }
             if (confirmingMemoryForget) {
                 confirmingMemoryForget = false
+                confirmingConversationClear = false
                 awaitingConfirmation = false
                 pendingActions = emptyList()
 
@@ -813,6 +854,7 @@ private fun handleConfirmation(rawText: String) {
             pendingActions = emptyList()
             awaitingConfirmation = false
             confirmingMemoryForget = false
+            confirmingConversationClear = false
 
             if (actions.isNotEmpty()) {
                 executePlan(actions)
