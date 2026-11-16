@@ -1,15 +1,17 @@
 
+
 const ALLOWED_ACTIONS = new Set([
   "answer_only",
   "open_app",
   "youtube_search",
+  "web_search",
   "draft_message",
   "share_text",
   "battery_status",
   "weather",
   "unsupported"
-   "web_search",
 ]);
+
 function parseAgentOutput(raw) {
   try {
     const cleaned = String(raw || "")
@@ -37,15 +39,19 @@ function parseAgentOutput(raw) {
       });
     }
 
-    const executableSteps = steps.filter((step) =>
+    
+const executableSteps = steps.filter((step) =>
   [
     "open_app",
     "youtube_search",
+    "web_search",
     "draft_message",
     "share_text",
     "battery_status",
     "weather"
-     "web_search",
+  ].includes(step.action)
+);
+
   ].includes(step.action)
 );.includes(step.action)
 );
@@ -91,7 +97,7 @@ function makeSystemPrompt(memories) {
     "Return ONLY valid JSON, with no Markdown fences, using exactly this structure:",
     '{"reply":"Natural spoken response","goal":"Short user goal","steps":[{"action":"answer_only","target":"","description":"Step description"}],"requiresConfirmation":false,"confirmationReason":""}',
     "",
-    "Allowed actions: answer_only, open_app, youtube_search, draft_message, share_text, battery_status, unsupported.",
+    "Allowed actions: answer_only, open_app, youtube_search, web_search, draft_message, share_text, battery_status, weather, unsupported.",
 "battery_status: read the phone battery percentage locally. Use an empty target.",
 "Use battery_status whenever the user asks for battery level or battery percentage.",
     "share_text: open Android share chooser with the exact text in target. User must select the app and recipient and manually approve sending.",
