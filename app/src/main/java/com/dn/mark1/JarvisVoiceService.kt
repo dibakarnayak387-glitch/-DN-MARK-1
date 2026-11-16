@@ -44,6 +44,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var confirmingMemoryForget = false
 
     private var pendingSpeech: String? = null
+    // Advanced conversation context
+private val conversationHistory = mutableListOf<GeminiMessage>()
 
     override fun onCreate() {
         super.onCreate()
@@ -537,11 +539,16 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     // AI agent request
     updateNotification("AI is thinking...")
 
-    GeminiClient.sendAgent(
-    listOf(GeminiMessage("user", question)),
+    conversationHistory.add(GeminiMessage("user", question))
+
+while (conversationHistory.size > 12) {
+    conversationHistory.removeAt(0)
+}
+
+GeminiClient.sendAgent(
+    conversationHistory.toList(),
     JarvisMemory.getAll(this)
 ) { result, error ->
-
         handler.post {
             if (serviceStopped) return@post
 
