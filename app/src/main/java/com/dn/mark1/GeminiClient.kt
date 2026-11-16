@@ -163,6 +163,7 @@ object GeminiClient {
         "draft_message",
         "share_text",
         "battery_status",
+        "weather",
         "unsupported"
     )
 ) action else "unsupported"
