@@ -853,7 +853,10 @@ private fun executePlan(actions: List<AgentStep>) {
                     { runStep(index + 1) },
                     1500
                 )
-            }
+            
+           }
+    }
+}
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
