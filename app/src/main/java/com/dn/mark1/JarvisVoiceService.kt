@@ -831,24 +831,26 @@ private fun executePlan(actions: List<AgentStep>) {
     )
             }
 
-            "share_text" -> {
-    val success = AndroidActionExecutor.shareText(
-        this,
-        step.target
-    )
+                        "share_text" -> {
+                val success = AndroidActionExecutor.shareText(
+                    this,
+                    step.target
+                )
 
-    results.add(
-        if (success) {
-            "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
-        } else {
-            "Share chooser नहीं खुल पाया"
-        }
-    )
+                results.add(
+                    if (success) {
+                        "Share chooser खुला; भेजने के लिए तुम्हारा चयन जरूरी है"
+                    } else {
+                        "Share chooser नहीं खुल पाया"
+                    }
+                )
 
-        handler.postDelayed(
-        { runStep(index + 1) },
-        1500
+                handler.postDelayed(
+                    { runStep(index + 1) },
+                    1500
+                )
             }
+        }
     }
 
     runStep(0)
