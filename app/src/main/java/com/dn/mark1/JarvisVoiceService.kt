@@ -329,11 +329,73 @@ private fun isMultiStepRequest(raw: String): Boolean {
         "\\b(aur|and|then|phir|fir|uske baad|after that|also)\\b|और|फिर|उसके बाद|ଏବଂ|ତାପରେ"
     ).containsMatchIn(text)
 }
+private fun extractRequestedApps(raw: String): List<String> {
+    val text = raw.lowercase(Locale.ROOT)
 
+    val aliases = listOf(
+        "youtube" to listOf("youtube", "यूट्यूब"),
+        "instagram" to listOf("instagram", "इंस्टाग्राम"),
+        "whatsapp" to listOf("whatsapp", "व्हाट्सएप"),
+        "facebook" to listOf("facebook", "फेसबुक"),
+        "chrome" to listOf("chrome", "क्रोम")
+    )
+
+    return aliases.mapNotNull { (app, names) ->
+        val positions = names.map { text.indexOf(it) }
+            .filter { it >= 0 }
+
+        if (positions.isEmpty()) null
+        else app to positions.minOrNull()!!
+    }.sortedBy { it.second }.map { it.first }
+}
 private fun askGemini(question: String) {
     val appTarget = extractOpenAppTarget(question)
     val lowerQuestion = question.lowercase(Locale.ROOT)
     val multiStepRequest = isMultiStepRequest(question)
+    // DIRECT BATTERY RESPONSE
+if (
+    lowerQuestion.contains("battery") ||
+    lowerQuestion.contains("बैटरी") ||
+    lowerQuestion.contains("charge kitna") ||
+    lowerQuestion.contains("charge kitni") ||
+    lowerQuestion.contains("चार्ज कितना")
+) {
+    speakAndResume(
+        AndroidActionExecutor.getBatteryStatus(this)
+    )
+    return
+}
+
+// CONFIRMED MULTI-APP SEQUENCE
+val requestedApps = extractRequestedApps(question)
+
+val hasOpenCommand = listOf(
+    "open", "kholo", "khol", "खोलो", "खोल"
+).any { lowerQuestion.contains(it) }
+
+if (
+    multiStepRequest &&
+    hasOpenCommand &&
+    requestedApps.size >= 2
+) {
+    pendingActions = requestedApps.map {
+        AgentStep(
+            action = "open_app",
+            target = it,
+            description = "$it खोलना"
+        )
+    }
+
+    awaitingConfirmation = true
+
+    val sequence = requestedApps.joinToString(" फिर ")
+
+    speakAndResume(
+        "मैं पहले $sequence खोलूँगा। " +
+        "क्या मैं शुरू करूँ? हाँ या नहीं बोलिए।"
+    )
+    return
+}
         // SMART MEMORY: Save a preference or fact
     val rememberPrefixes = listOf(
         "yaad rakhna", "remember that", "remember",
@@ -536,7 +598,7 @@ private fun handleConfirmation(rawText: String) {
 
     val yesWords = setOf(
         "हाँ", "हां", "जी", "yes", "yeah", "yep",
-        "haan", "han", "okay", "ok", "ହଁ"
+        "haan", "han", "okay", "ok", "ହଁ""ha", "haanji", "hanji", "bilkul", "confirm", "kardo"
     )
 
     val noWords = setOf(
