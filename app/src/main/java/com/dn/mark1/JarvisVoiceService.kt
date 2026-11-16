@@ -555,11 +555,23 @@ GeminiClient.sendAgent(
             val agentResult = result
 
             if (agentResult == null) {
-                speakAndResume(
-                    "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
-                )
-                return@post
-            }
+    if (conversationHistory.lastOrNull()?.role == "user") {
+        conversationHistory.removeAt(conversationHistory.lastIndex)
+    }
+
+    speakAndResume(
+        "माफ कीजिए, जवाब नहीं मिल पाया। ${error.orEmpty()}"
+    )
+    return@post
+}
+
+conversationHistory.add(
+    GeminiMessage("assistant", agentResult.reply)
+)
+
+while (conversationHistory.size > 12) {
+    conversationHistory.removeAt(0)
+}
 
             val plan = agentResult.agentPlan
 
