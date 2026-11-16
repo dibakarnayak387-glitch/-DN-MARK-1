@@ -597,9 +597,11 @@ private fun handleConfirmation(rawText: String) {
     val words = normalized.split(" ").filter { it.isNotBlank() }
 
     val yesWords = setOf(
-        "हाँ", "हां", "जी", "yes", "yeah", "yep",
-        "haan", "han", "okay", "ok", "ହଁ""ha", "haanji", "hanji", "bilkul", "confirm", "kardo"
-    )
+    "हाँ", "हां", "जी", "yes", "yeah", "yep",
+    "haan", "han", "ha", "haanji", "hanji",
+    "okay", "ok", "bilkul", "confirm", "kardo",
+    "ହଁ"
+)
 
     val noWords = setOf(
         "नहीं", "नही", "no", "nope", "nahi", "nahin",
