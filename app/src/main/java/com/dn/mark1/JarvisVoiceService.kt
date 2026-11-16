@@ -495,12 +495,12 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
             val plan = agentResult.agentPlan
 
             val actions = plan.steps.filter {
-    it.action == "open_app" ||
-    it.action == "youtube_search" ||
-    it.action == "share_text" ||
-    it.action == "draft_message"
-    it.action == "battery_status" ||            
-}
+            it.action == "open_app" ||
+            it.action == "youtube_search" ||
+            it.action == "share_text" ||
+            it.action == "draft_message" ||
+            it.action == "battery_status"
+        }
             if (actions.isEmpty()) {
                 speakAndResume(agentResult.reply)
                 return@post
@@ -598,13 +598,17 @@ private fun handleConfirmation(rawText: String) {
     for (action in actions) {
         when (action.action) {
 
+            "battery_status" -> {
+                completed.add(
+                    AndroidActionExecutor.getBatteryStatus(this)
+                )
+            }
+
             "open_app" -> {
                 if (openApprovedApp(action.target)) {
                     completed.add("${action.target} खोला")
                 } else {
-                    speakAndResume(
-                        "ऐप नहीं खुल पाया। बाकी काम रोक दिया गया।"
-                    )
+                    speakAndResume("ऐप नहीं खुल पाया। बाकी काम रोक दिया गया।")
                     return
                 }
             }
@@ -614,36 +618,31 @@ private fun handleConfirmation(rawText: String) {
                     this,
                     action.target
                 )
-                "battery_status" -> {
-    completed.add(
-        AndroidActionExecutor.getBatteryStatus(this)
-    )
-}
 
                 if (success) {
                     completed.add("YouTube पर ${action.target} खोजा")
                 } else {
-                    speakAndResume(
-                        "YouTube पर खोज नहीं हो पाई।"
-                    )
+                    speakAndResume("YouTube पर खोज नहीं हो पाई।")
                     return
                 }
             }
-            "share_text" -> {
-    val success = AndroidActionExecutor.shareText(
-        this,
-        action.target
-    )
 
-    speakAndResume(
-        if (success) {
-            "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
-        } else {
-            "शेयर नहीं हो पाया।"
-        }
-    )
-    return
-}
+            "share_text" -> {
+                val success = AndroidActionExecutor.shareText(
+                    this,
+                    action.target
+                )
+
+                speakAndResume(
+                    if (success) {
+                        "शेयर करने का विकल्प खुल गया है। अब ऐप और प्राप्तकर्ता चुनें।"
+                    } else {
+                        "शेयर नहीं हो पाया।"
+                    }
+                )
+                return
+            }
+
             "draft_message" -> {
                 speakAndResume(
                     "मैं संदेश तैयार करने में मदद कर सकता हूँ, लेकिन उसे अपने-आप नहीं भेजूँगा।"
@@ -660,7 +659,7 @@ private fun handleConfirmation(rawText: String) {
 
     speakAndResume(
         if (completed.isNotEmpty()) {
-            "काम पूरा करने की कोशिश की। " + completed.joinToString("। ")
+            completed.joinToString("। ")
         } else {
             "कोई काम पूरा नहीं हुआ।"
         }
