@@ -52,6 +52,9 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
     override fun onCreate() {
         super.onCreate()
+        if (conversationHistory.isEmpty()) {
+    conversationHistory.addAll(ConversationStore.load(this))
+        }
         createNotificationChannel()
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
@@ -691,6 +694,7 @@ if (recallPhrases.any { lowerQuestion.contains(it) }) {
     updateNotification("AI is thinking...")
 
     conversationHistory.add(GeminiMessage("user", question))
+    ConversationStore.save(this, conversationHistory)
 
 while (conversationHistory.size > 12) {
     conversationHistory.removeAt(0)
