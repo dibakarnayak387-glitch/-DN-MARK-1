@@ -926,7 +926,13 @@ private fun executePlan(actions: List<AgentStep>) {
             }
         }
 
-        val completed = AgentTaskManager.complete(taskId, summary)
+        val successfulSteps = actions.size - failedActions.size
+
+val completed = AgentTaskManager.finish(
+    taskId,
+    successfulSteps,
+    summary
+)
                 if (completed) {
             AgentTaskManager.snapshot()?.let { finishedTask ->
                 TaskHistoryStore.save(this@JarvisVoiceService, finishedTask)
@@ -1071,11 +1077,13 @@ updateNotification(
             }
 
             else -> {
-                results.add(
-                    "यह काम अभी समर्थित नहीं है: ${step.description}"
-                )
-                runStep(index + 1)
-            }
+    results.add(
+        "यह काम अभी समर्थित नहीं है: ${step.description}"
+    )
+
+    failedActions.add(step)
+    runStep(index + 1)
+}
         }
     }
 
