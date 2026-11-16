@@ -71,6 +71,20 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
         }
 
         serviceStopped = false
+        if (intent?.action == ACTION_CANCEL_TASK) {
+    val cancelled = AgentTaskManager.cancelCurrent()
+
+    if (cancelled) {
+        handler.post {
+            awaitingConfirmation = false
+            pendingActions = emptyList()
+            processing = false
+            speakAndResume("ठीक है, चल रहा काम रद्द कर दिया गया।")
+        }
+    }
+
+    return START_NOT_STICKY
+        }
 
         val notification = buildNotification("Jarvis voice service starting")
 
@@ -789,6 +803,10 @@ private fun executePlan(actions: List<AgentStep>) {
 
     fun runStep(index: Int) {
         if (serviceStopped) return
+        if (AgentTaskManager.isCancelled(taskId)) {
+    updateNotification("Task cancelled")
+    return
+        }
 
         if (index >= actions.size) {
             finishPlan()
@@ -1076,6 +1094,15 @@ override fun onInit(status: Int) {
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val cancelIntent = Intent(this, JarvisVoiceService::class.java)
+    .setAction(ACTION_CANCEL_TASK)
+
+val cancelPendingIntent = PendingIntent.getService(
+    this,
+    103,
+    cancelIntent,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("D.N. MARK 1")
@@ -1084,6 +1111,11 @@ override fun onInit(status: Int) {
             .setOngoing(true)
             .addAction(
                 android.R.drawable.ic_media_pause,
+                .addAction(
+    android.R.drawable.ic_menu_close_clear_cancel,
+    "Cancel Task",
+    cancelPendingIntent
+)
                 "Stop Jarvis",
                 stopPendingIntent
             )
