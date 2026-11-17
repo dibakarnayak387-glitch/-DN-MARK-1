@@ -55,9 +55,12 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
     override fun onCreate() {
         super.onCreate()
-        if (conversationHistory.isEmpty()) {
-    conversationHistory.addAll(ConversationStore.load(this))
-        }
+        val savedRetry = TaskHistoryStore.loadRetry(this)
+
+if (savedRetry != null) {
+    retryActions = savedRetry.actions
+    retryTaskGoal = savedRetry.goal
+}
         createNotificationChannel()
 
         tts = TextToSpeech(this, this)
