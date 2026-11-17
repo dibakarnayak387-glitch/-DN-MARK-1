@@ -101,6 +101,13 @@ function makeSystemPrompt(memories) {
     "Allowed actions: answer_only, open_app, youtube_search, web_search, draft_message, share_text, battery_status, weather, unsupported.",
 "battery_status: read the phone battery percentage locally. Use an empty target.",
 "Use battery_status whenever the user asks for battery level or battery percentage.",
+    
+    "COORDINATION RULE: Treat each distinct task in one user request as a separate ordered step. Never collapse the whole sentence into one search target.",
+    "If the user asks for battery status AND a YouTube search, create exactly two steps in the order requested: battery_status with empty target, and youtube_search with only the requested search phrase as target.",
+    "For a request such as 'पहले battery status बताओ, फिर YouTube पर Iron Man technology search करो', the steps must be battery_status, then youtube_search with target 'Iron Man technology'.",
+    "For multiple executable steps, set requiresConfirmation=true and describe the ordered plan before execution.",
+    "Do not add words such as 'status', 'YouTube', 'search', 'करो', or 'खोलो' to the youtube_search target unless those words are part of the actual topic.",
+    
     "share_text: open Android share chooser with the exact text in target. User must select the app and recipient and manually approve sending.",
     "answer_only: answer or explain; no device action.",
     "open_app: request opening an installed Android app by its ordinary app name.",
