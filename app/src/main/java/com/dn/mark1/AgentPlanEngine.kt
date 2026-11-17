@@ -147,4 +147,139 @@ object AgentPlanEngine {
             }
         )
     }
+    
+    /**
+     * Deterministic coordinator for common mixed device requests.
+     */
+    fun buildKnownMultiStepPlan(raw: String): AgentPlan? {
+        val lower = raw.lowercase()
+
+        fun firstMatch(
+            text: String,
+            terms: List<String>
+        ): Pair<Int, String>? {
+            return terms.mapNotNull { term ->
+                val index = text.indexOf(term)
+                if (index >= 0) index to term else null
+            }.minByOrNull { it.first }
+        }
+
+        val batteryMatch = firstMatch(
+            lower,
+            listOf(
+                "battery status",
+                "battery level",
+                "battery percentage",
+                "battery",
+                "बैटरी स्टेटस",
+                "बैटरी",
+                "चार्ज कितना",
+                "चार्ज कितनी"
+            )
+        ) ?: return null
+
+        val youtubeMatch = firstMatch(
+            lower,
+            listOf("youtube", "यूट्यूब")
+        ) ?: return null
+
+        val searchTerms = listOf(
+            "search", "सर्च", "खोज", "ढूंढ", "find"
+        )
+
+        val afterYoutubeStart =
+            youtubeMatch.first + youtubeMatch.second.length
+
+        val afterYoutube = lower.substring(afterYoutubeStart)
+        val searchAfterYoutube = firstMatch(
+            afterYoutube,
+            searchTerms
+        )
+
+        var query = if (searchAfterYoutube != null) {
+            raw.substring(
+                afterYoutubeStart,
+                afterYoutubeStart + searchAfterYoutube.first
+            )
+        } else {
+            val searchBeforeYoutube = firstMatch(
+                lower.substring(0, youtubeMatch.first),
+                searchTerms
+            ) ?: return null
+
+            val queryStart =
+                searchBeforeYoutube.first + searchBeforeYoutube.second.length
+
+            raw.substring(queryStart, youtubeMatch.first)
+                .replace(
+                    Regex("(?i)\\s+(on|पर|में|pe|par)\\s*$"),
+                    ""
+                )
+        }
+
+        // "YouTube search Iron Man technology" भी समझे।
+        if (query.isBlank() && searchAfterYoutube != null) {
+            val afterSearchStart =
+                afterYoutubeStart +
+                searchAfterYoutube.first +
+                searchAfterYoutube.second.length
+
+            val remainder = raw.substring(afterSearchStart)
+            val lowerRemainder = lower.substring(afterSearchStart)
+
+            val stopWords = listOf(
+                " और ", " फिर ", " and ", " then ",
+                " अंत में ", " उसके बाद "
+            )
+
+            val stopIndex = stopWords
+                .map { lowerRemainder.indexOf(it) }
+                .filter { it >= 0 }
+                .minOrNull() ?: remainder.length
+
+            query = remainder.substring(0, stopIndex)
+                .replace(
+                    Regex("(?i)\\s+(please|karo|kar do|do|करो|करें)$"),
+                    ""
+                )
+        }
+
+        query = query
+            .replace(
+                Regex("(?i)^\\s*(पर|में|pe|par|me|on|for)\\s+"),
+                ""
+            )
+            .trim()
+            .trim(',', '.', '?', '!', '।')
+
+        if (query.isBlank()) return null
+
+        val batteryStep = AgentStep(
+            action = "battery_status",
+            target = "",
+            description = "फोन की Battery Status बताना"
+        )
+
+        val youtubeStep = AgentStep(
+            action = "youtube_search",
+            target = query,
+            description = "YouTube पर $query खोजना"
+        )
+
+        val orderedSteps = if (
+            batteryMatch.first < youtubeMatch.first
+        ) {
+            listOf(batteryStep, youtubeStep)
+        } else {
+            listOf(youtubeStep, batteryStep)
+        }
+
+        return normalize(
+            goal = raw.trim(),
+            inputSteps = orderedSteps,
+            confirmationRequired = true,
+            confirmationReason = "दो काम क्रम से चलेंगे।"
+        )
+    }
+    
 }
