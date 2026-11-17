@@ -773,9 +773,9 @@ while (conversationHistory.size > 12) {
             }
 
             if (plan.requiresConfirmation) {
-                pendingActions = actions
-                awaitingConfirmation = true
-
+    pendingTaskGoal = plan.goal.ifBlank { question }
+    pendingActions = actions
+    awaitingConfirmation = true
                 speakAndResume(
                     if (agentResult.reply.isNotBlank()) {
                         agentResult.reply
@@ -852,16 +852,20 @@ private fun handleConfirmation(rawText: String) {
                 return
             }
 
-            val actions = pendingActions.toList()
+             val actions = pendingActions.toList()
+val goal = pendingTaskGoal
+pendingTaskGoal = ""
 
-            pendingActions = emptyList()
-            awaitingConfirmation = false
-            confirmingMemoryForget = false
-            confirmingConversationClear = false
+pendingActions = emptyList()
+awaitingConfirmation = false
+confirmingMemoryForget = false
+confirmingConversationClear = false
 
-            if (actions.isNotEmpty()) {
-                executePlan(actions)
-            } else {
+if (actions.isNotEmpty()) {
+    executePlan(actions, goal)
+} else {
+    speakAndResume("कोई काम बाकी नहीं है।")
+}else {
                 speakAndResume("कोई काम बाकी नहीं है।")
             }
         }
