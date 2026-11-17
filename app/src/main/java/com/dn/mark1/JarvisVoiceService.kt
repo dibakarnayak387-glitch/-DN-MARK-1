@@ -1004,17 +1004,41 @@ updateNotification(
             }
 
             "weather" -> {
-                AndroidActionExecutor.getWeather(step.target) { report ->
-                    handler.post {
-                        if (!serviceStopped &&
-                            !AgentTaskManager.isCancelled(taskId)
-                        ) {
-                            results.add(report)
-                            runStep(index + 1)
-                        }
-                    }
-                }
+    var weatherFinished = false
+
+    val weatherTimeout = Runnable {
+        if (
+            !weatherFinished &&
+            !serviceStopped &&
+            !AgentTaskManager.isCancelled(taskId)
+        ) {
+            weatherFinished = true
+
+            results.add("मौसम की जानकारी मिलने में समय लग गया।")
+            failedActions.add(step)
+
+            runStep(index + 1)
+        }
+    }
+
+    handler.postDelayed(weatherTimeout, 20_000)
+
+    AndroidActionExecutor.getWeather(step.target) { report ->
+        handler.post {
+            if (
+                !weatherFinished &&
+                !serviceStopped &&
+                !AgentTaskManager.isCancelled(taskId)
+            ) {
+                weatherFinished = true
+                handler.removeCallbacks(weatherTimeout)
+
+                results.add(report)
+                runStep(index + 1)
             }
+        }
+    }
+}
 
             "open_app" -> {
                 val success = openApprovedApp(step.target)
