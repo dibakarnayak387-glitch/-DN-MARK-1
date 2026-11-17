@@ -31,7 +31,7 @@ object TaskHistoryStore {
                 status = task.status,
                 completedSteps = task.completedSteps,
                 totalSteps = task.totalSteps,
-                result = task.result.take(500),
+                result = task.result.take(2000),
                 timestamp = System.currentTimeMillis()
             )
         )
