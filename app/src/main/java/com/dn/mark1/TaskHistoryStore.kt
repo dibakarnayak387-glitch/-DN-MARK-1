@@ -6,6 +6,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 data class TaskHistoryEntry(
+    data class RetryTaskData(
+    val goal: String,
+    val actions: List<AgentStep>
+)
     val goal: String,
     val status: String,
     val completedSteps: Int,
@@ -80,7 +84,72 @@ object TaskHistoryStore {
             emptyList()
         }
     }
+    @Synchronized
+    fun saveRetry(
+        context: Context,
+        goal: String,
+        actions: List<AgentStep>
+    ) {
+        val array = JSONArray()
 
+        actions.forEach { step ->
+            array.put(
+                JSONObject().apply {
+                    put("action", step.action)
+                    put("target", step.target)
+                    put("description", step.description)
+                }
+            )
+        }
+
+        val data = JSONObject().apply {
+            put("goal", goal)
+            put("actions", array)
+        }
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("retry_task_data", data.toString())
+            .apply()
+    }
+
+    fun loadRetry(context: Context): RetryTaskData? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("retry_task_data", null) ?: return null
+
+        return try {
+            val data = JSONObject(raw)
+            val array = data.optJSONArray("actions") ?: JSONArray()
+            val actions = mutableListOf<AgentStep>()
+
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+
+                actions.add(
+                    AgentStep(
+                        action = item.optString("action"),
+                        target = item.optString("target"),
+                        description = item.optString("description")
+                    )
+                )
+            }
+
+            if (actions.isEmpty()) null
+            else RetryTaskData(
+                goal = data.optString("goal"),
+                actions = actions
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun clearRetry(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove("retry_task_data")
+            .apply()
+    }
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
