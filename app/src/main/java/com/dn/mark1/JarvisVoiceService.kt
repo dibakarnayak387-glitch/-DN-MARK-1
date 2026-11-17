@@ -865,13 +865,13 @@ if (actions.isNotEmpty()) {
     executePlan(actions, goal)
 } else {
     speakAndResume("कोई काम बाकी नहीं है।")
-}else {
-                speakAndResume("कोई काम बाकी नहीं है।")
+}
             }
         }
 
         isNo && !isYes -> {
             pendingActions = emptyList()
+            pendingTaskGoal = ""
             awaitingConfirmation = false
             confirmingMemoryForget = false
 
