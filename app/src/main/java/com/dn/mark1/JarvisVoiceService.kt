@@ -61,7 +61,14 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
         val savedRetry = TaskHistoryStore.loadRetry(this)
 
 if (savedRetry != null) {
-    retryActions = savedRetry.actions
+    val safePlan = AgentPlanEngine.normalize(
+        goal = savedRetry.goal,
+        inputSteps = savedRetry.actions,
+        confirmationRequired = false,
+        confirmationReason = ""
+    )
+
+    retryActions = safePlan.steps
     retryTaskGoal = savedRetry.goal
 }
         createNotificationChannel()
@@ -286,8 +293,15 @@ private fun handleRecognizedText(rawText: String) {
     val lower = text.lowercase(Locale.ROOT)
 
     val wakeWords = listOf(
-        "jarvis", "जार्विस", "जार्वीस", "जर्विस"
-    )
+    "jarvis",
+    "जार्विस",
+    "जार्वीस",
+    "जर्विस",
+    "जार्विस जी",
+    "जार्विस सुनो",
+    "hey jarvis",
+    "hi jarvis"
+)
 
     val wakeFound = wakeWords.any { lower.contains(it) }
 
@@ -1054,7 +1068,18 @@ updateNotification(
                 handler.removeCallbacks(weatherTimeout)
 
                 results.add(report)
-                runStep(index + 1)
+
+val weatherFailed =
+    report.contains("नहीं मिल") ||
+    report.contains("नहीं हो पाई") ||
+    report.contains("समय लग") ||
+    report.contains("error", ignoreCase = true)
+
+if (weatherFailed) {
+    failedActions.add(step)
+}
+
+runStep(index + 1)
             }
         }
     }
