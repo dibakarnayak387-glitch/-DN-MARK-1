@@ -61,9 +61,10 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,mu
-            "DNMark1:JarvisWakeLock"
-        )
+            wakeLock = powerManager.newWakeLock(
+    PowerManager.PARTIAL_WAKE_LOCK,
+    "DNMark1:JarvisWakeLock"
+)
 
         tts = TextToSpeech(this, this)
     }
@@ -819,74 +820,71 @@ private fun handleConfirmation(rawText: String) {
     val isNo = words.any { it in noWords }
 
     when {
-        isYes && !isNo -> {
-            if (confirmingConversationClear) {
-    confirmingConversationClear = false
-    awaitingConfirmation = false
-    pendingActions = emptyList()
-
-    val cleared = ConversationStore.clear(this)
-
-    if (cleared) {
-        conversationHistory.clear()
-        speakAndResume("पुरानी बातचीत की हिस्ट्री मिटा दी गई है।")
-    } else {
-        speakAndResume("बातचीत की हिस्ट्री नहीं मिट पाई।")
-    }
-    return
-            }
-            if (confirmingMemoryForget) {
-                confirmingMemoryForget = false
-                confirmingConversationClear = false
-                awaitingConfirmation = false
-                pendingActions = emptyList()
-
-                val deleted = JarvisMemory.forgetAll(this)
-
-                speakAndResume(
-                    if (deleted)
-                        "आपकी सेव की गई मेमोरी हटा दी गई है।"
-                    else
-                        "मेमोरी हटाई नहीं जा सकी।"
-                )
-                return
-            }
-
-             val actions = pendingActions.toList()
-val goal = pendingTaskGoal
-pendingTaskGoal = ""
-
-pendingActions = emptyList()
-awaitingConfirmation = false
-confirmingMemoryForget = false
-confirmingConversationClear = false
-
-if (actions.isNotEmpty()) {
-    executePlan(actions, goal)
-} else {
-    speakAndResume("कोई काम बाकी नहीं है।")
-}
-            }
-        }
-
-        isNo && !isYes -> {
+    isYes && !isNo -> {
+        if (confirmingConversationClear) {
+            confirmingConversationClear = false
+            awaitingConfirmation = false
             pendingActions = emptyList()
             pendingTaskGoal = ""
-            awaitingConfirmation = false
-            confirmingMemoryForget = false
 
-            speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+            val cleared = ConversationStore.clear(this)
+
+            if (cleared) {
+                conversationHistory.clear()
+                speakAndResume("पुरानी बातचीत की हिस्ट्री मिटा दी गई है।")
+            } else {
+                speakAndResume("बातचीत की हिस्ट्री नहीं मिट पाई।")
+            }
+            return
         }
 
-        else -> {
-            // Confirmation mode चालू रहेगा।
-            // कोई दूसरा command execute नहीं होगा।
-            awaitingConfirmation = true
+        if (confirmingMemoryForget) {
+            confirmingMemoryForget = false
+            confirmingConversationClear = false
+            awaitingConfirmation = false
+            pendingActions = emptyList()
+            pendingTaskGoal = ""
+
+            val deleted = JarvisMemory.forgetAll(this)
 
             speakAndResume(
-                "मुझे केवल हाँ या नहीं बताइए।"
+                if (deleted)
+                    "आपकी सेव की गई मेमोरी हटा दी गई है।"
+                else
+                    "मेमोरी हटाई नहीं जा सकी।"
             )
+            return
         }
+
+        val actions = pendingActions.toList()
+        val goal = pendingTaskGoal
+        pendingTaskGoal = ""
+
+        pendingActions = emptyList()
+        awaitingConfirmation = false
+        confirmingMemoryForget = false
+        confirmingConversationClear = false
+
+        if (actions.isNotEmpty()) {
+            executePlan(actions, goal)
+        } else {
+            speakAndResume("कोई काम बाकी नहीं है।")
+        }
+    }
+
+    isNo && !isYes -> {
+        pendingActions = emptyList()
+        pendingTaskGoal = ""
+        awaitingConfirmation = false
+        confirmingMemoryForget = false
+        confirmingConversationClear = false
+
+        speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
+    }
+
+    else -> {
+        awaitingConfirmation = true
+        speakAndResume("मुझे केवल हाँ या नहीं बताइए।")
     }
 }
     
