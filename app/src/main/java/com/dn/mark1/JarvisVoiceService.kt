@@ -493,6 +493,30 @@ if (taskStatusWords.any { lowerQuestion.contains(it) }) {
         return
     }
     
+    // COORDINATE KNOWN MULTI-STEP DEVICE REQUESTS
+    val coordinatedPlan =
+        AgentPlanEngine.buildKnownMultiStepPlan(question)
+
+    if (coordinatedPlan != null) {
+        pendingTaskGoal =
+            coordinatedPlan.goal.ifBlank { question }
+
+        pendingActions = coordinatedPlan.steps
+        awaitingConfirmation = true
+
+        val orderedPreview = coordinatedPlan.steps
+            .mapIndexed { index, step ->
+                "${index + 1}. ${step.description}"
+            }
+            .joinToString("। ")
+
+        speakAndResume(
+            "मैं ये काम इसी क्रम में करूँगा: $orderedPreview। " +
+            "क्या शुरू करूँ? हाँ या नहीं बोलिए।"
+        )
+        return
+    }
+    
     // DIRECT BATTERY RESPONSE
 if (
     lowerQuestion.contains("battery") ||
@@ -1030,12 +1054,23 @@ updateNotification(
                 runStep(index + 1)
             }
 
+            
             "battery_status" -> {
-                results.add(
+                val report =
                     AndroidActionExecutor.getBatteryStatus(this)
-                )
+
+                results.add(report)
+
+                if (
+                    report.contains("उपलब्ध नहीं") ||
+                    report.contains("नहीं मिल पाई")
+                ) {
+                    failedActions.add(step)
+                }
+
                 runStep(index + 1)
             }
+
 
             "weather" -> {
     var weatherFinished = false
