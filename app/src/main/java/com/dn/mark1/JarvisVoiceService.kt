@@ -1113,37 +1113,22 @@ updateNotification(
             }
 
             "share_text", "draft_message" -> {
-                val success = AndroidActionExecutor.shareText(
-                    this, step.target
-                )
-
-                if (success) {
-                    results.add(
-                        "Share विकल्प खुल गया। संदेश जाँचकर खुद भेजें।"
-                    )
-                } else {
-                    results.add("Share विकल्प नहीं खुल पाया।")
-                    failedActions.add(step)
-                }
-
-                finishPlan()
-            }
-
-            else -> {
-    results.add(
-        "यह काम अभी समर्थित नहीं है: ${step.description}"
+    val success = AndroidActionExecutor.shareText(
+        this,
+        step.target
     )
 
-    failedActions.add(step)
-    runStep(index + 1)
-}
-        }
+    if (success) {
+        results.add(
+            "Share विकल्प खुल गया। संदेश जाँचकर खुद भेजें।"
+        )
+    } else {
+        results.add("Share विकल्प नहीं खुल पाया।")
+        failedActions.add(step)
     }
 
-    runStep(0)
+    runStep(index + 1)
 }
-
-
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
