@@ -163,16 +163,6 @@ for (i in 0 until minOf(stepsJson.length(), 5)) {
     )
 }
 
-val plan = AgentPlanEngine.normalize(
-    goal = planJson.optString("goal"),
-    inputSteps = rawSteps,
-    confirmationRequired =
-        planJson.optBoolean("requiresConfirmation"),
-    confirmationReason =
-        planJson.optString("confirmationReason")
-)
-
-
                             val plan = AgentPlan(
                                 goal = planJson.optString("goal"),
                                 steps = steps,
