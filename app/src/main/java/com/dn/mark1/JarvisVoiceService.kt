@@ -59,13 +59,6 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
         }
         createNotificationChannel()
 
-        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            wakeLock = powerManager.newWakeLock(
-    PowerManager.PARTIAL_WAKE_LOCK,
-    "DNMark1:JarvisWakeLock"
-)
-
         tts = TextToSpeech(this, this)
     }
 
@@ -882,13 +875,12 @@ private fun handleConfirmation(rawText: String) {
         speakAndResume("ठीक है, मैंने काम रद्द कर दिया।")
     }
 
-    else -> {
+        else -> {
         awaitingConfirmation = true
         speakAndResume("मुझे केवल हाँ या नहीं बताइए।")
     }
 }
-    
-
+}
 
 private fun executePlan(
     actions: List<AgentStep>,
