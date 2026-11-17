@@ -55,6 +55,9 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
     override fun onCreate() {
         super.onCreate()
+        conversationHistory.addAll(
+    ConversationStore.load(this)
+)
         val savedRetry = TaskHistoryStore.loadRetry(this)
 
 if (savedRetry != null) {
