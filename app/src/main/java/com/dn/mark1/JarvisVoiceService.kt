@@ -402,8 +402,7 @@ private fun askGemini(question: String) {
         if (actionsToRetry.isEmpty()) {
             speakAndResume("दोबारा चलाने के लिए कोई असफल काम उपलब्ध नहीं है।")
         } else {
-            retryActions = emptyList()
-retryTaskGoal = ""
+            
             speakAndResume("असफल काम दोबारा शुरू कर रहा हूँ।")
             handler.postDelayed({
                 if (!serviceStopped) executePlan(actionsToRetry, goalToRetry)
@@ -922,7 +921,22 @@ private fun executePlan(
             return
         }
         retryActions = failedActions.toList()
-retryTaskGoal = if (failedActions.isNotEmpty()) goal else ""
+
+retryTaskGoal = if (failedActions.isNotEmpty()) {
+    goal
+} else {
+    ""
+}
+
+if (failedActions.isNotEmpty()) {
+    TaskHistoryStore.saveRetry(
+        this@JarvisVoiceService,
+        goal,
+        failedActions
+    )
+} else {
+    TaskHistoryStore.clearRetry(this@JarvisVoiceService)
+}
 
         val summary = buildString {
             append(
