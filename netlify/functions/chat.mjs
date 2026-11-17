@@ -56,7 +56,10 @@ const executableSteps = steps.filter((step) =>
 const requiresConfirmation =
   Boolean(parsed.requiresConfirmation) ||
   executableSteps.length > 1 ||
-  steps.some((step) => step.action === "draft_message");
+  steps.some((step) =>
+    step.action === "draft_message" ||
+    step.action === "share_text"
+  );
     return {
       reply: String(parsed.reply || "मैं आपकी मदद के लिए तैयार हूँ।").slice(0, 2000),
       goal: String(parsed.goal || "").slice(0, 300),
