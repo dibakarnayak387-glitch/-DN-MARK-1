@@ -40,23 +40,24 @@ object AgentPlanEngine {
                 .trim()
                 .lowercase()
 
-            val safeAction = if (
-                action in allowedActions
-            ) action else "unsupported"
+            val safeAction = if (action in allowedActions) {
+                action
+            } else {
+                "unsupported"
+            }
 
-            val target = original.target
-                .trim()
-                .take(300)
+            val target = original.target.trim().take(300)
 
             val description = original.description
                 .trim()
                 .take(200)
                 .ifBlank { safeAction }
 
-            val finalAction = if (
+            val missingTarget =
                 safeAction in targetRequiredActions &&
                 target.isBlank()
-            ) {
+
+            val finalAction = if (missingTarget) {
                 "unsupported"
             } else {
                 safeAction
@@ -66,10 +67,9 @@ object AgentPlanEngine {
                 finalAction == "unsupported"
             ) "" else target
 
-            val uniqueKey =
-                "$finalAction:${finalTarget.lowercase()}"
+            val key = "$finalAction:${finalTarget.lowercase()}"
 
-            if (seen.add(uniqueKey)) {
+            if (seen.add(key)) {
                 cleanSteps.add(
                     AgentStep(
                         action = finalAction,
@@ -79,20 +79,33 @@ object AgentPlanEngine {
                 )
             }
         }
-        // Share और message वाले काम को सबसे आखिर में रखें।
-val finalShareStep = cleanSteps.firstOrNull {
-    it.action == "share_text" ||
-    it.action == "draft_message"
-}
 
-cleanSteps.removeAll {
-    it.action == "share_text" ||
-    it.action == "draft_message"
-}
+        // Share/message action हमेशा सबसे आखिर में।
+        val shareSteps = cleanSteps.filter {
+            it.action == "share_text" ||
+            it.action == "draft_message"
+        }
 
-if (finalShareStep != null) {
-    cleanSteps.add(finalShareStep)
-}
+        cleanSteps.removeAll {
+            it.action == "share_text" ||
+            it.action == "draft_message"
+        }
+
+        if (shareSteps.isNotEmpty()) {
+            cleanSteps.add(shareSteps.first())
+
+            // एक plan में कई share dialogs न खोलें।
+            shareSteps.drop(1).forEach {
+                cleanSteps.add(
+                    AgentStep(
+                        action = "unsupported",
+                        target = "",
+                        description =
+                            "एक plan में अतिरिक्त message/share action समर्थित नहीं है।"
+                    )
+                )
+            }
+        }
 
         if (cleanSteps.isEmpty()) {
             cleanSteps.add(
