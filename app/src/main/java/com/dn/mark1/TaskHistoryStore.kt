@@ -6,16 +6,17 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 data class TaskHistoryEntry(
-    data class RetryTaskData(
-    val goal: String,
-    val actions: List<AgentStep>
-)
     val goal: String,
     val status: String,
     val completedSteps: Int,
     val totalSteps: Int,
     val result: String,
     val timestamp: Long
+)
+
+data class RetryTaskData(
+    val goal: String,
+    val actions: List<AgentStep>
 )
 
 object TaskHistoryStore {
