@@ -1152,8 +1152,12 @@ runStep(index + 1)
         failedActions.add(step)
     }
 
-    runStep(index + 1)
+        runStep(index + 1)
 }
+        }
+    }
+}
+
 private fun openApprovedApp(target: String): Boolean {
     val requested = target.trim()
 
