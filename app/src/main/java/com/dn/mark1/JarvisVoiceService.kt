@@ -48,6 +48,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var pendingTaskGoal: String = ""
 // Retry system: stores only failed supported actions.
 private var retryActions: List<AgentStep> = emptyList()
+private var retryTaskGoal: String = ""
     private var pendingSpeech: String? = null
     // Advanced conversation context
 private val conversationHistory = mutableListOf<GeminiMessage>()
@@ -391,14 +392,18 @@ private fun askGemini(question: String) {
 
     if (retryWords.any { lowerQuestionForRetry(question).contains(it) }) {
         val actionsToRetry = retryActions.toList()
+        val goalToRetry = retryTaskGoal.ifBlank {
+    "Jarvis retry task"
+}
 
         if (actionsToRetry.isEmpty()) {
             speakAndResume("दोबारा चलाने के लिए कोई असफल काम उपलब्ध नहीं है।")
         } else {
             retryActions = emptyList()
+retryTaskGoal = ""
             speakAndResume("असफल काम दोबारा शुरू कर रहा हूँ।")
             handler.postDelayed({
-                if (!serviceStopped) executePlan(actionsToRetry)
+                if (!serviceStopped) executePlan(actionsToRetry, goalToRetry)
             }, 700)
         }
         return
@@ -890,6 +895,10 @@ private fun executePlan(
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
         return
     }
+    if (AgentTaskManager.snapshot()?.status == "RUNNING") {
+    speakAndResume("एक काम पहले से चल रहा है। कृपया उसके पूरा होने का इंतज़ार करें।")
+    return
+    }
 
     val results = mutableListOf<String>()
     val failedActions = mutableListOf<AgentStep>()
@@ -910,6 +919,7 @@ private fun executePlan(
             return
         }
         retryActions = failedActions.toList()
+retryTaskGoal = if (failedActions.isNotEmpty()) goal else ""
 
         val summary = buildString {
             append(
