@@ -79,6 +79,20 @@ object AgentPlanEngine {
                 )
             }
         }
+        // Share और message वाले काम को सबसे आखिर में रखें।
+val finalShareStep = cleanSteps.firstOrNull {
+    it.action == "share_text" ||
+    it.action == "draft_message"
+}
+
+cleanSteps.removeAll {
+    it.action == "share_text" ||
+    it.action == "draft_message"
+}
+
+if (finalShareStep != null) {
+    cleanSteps.add(finalShareStep)
+}
 
         if (cleanSteps.isEmpty()) {
             cleanSteps.add(
