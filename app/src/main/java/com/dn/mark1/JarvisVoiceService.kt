@@ -45,6 +45,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var pendingActions: List<AgentStep> = emptyList()
     private var confirmingMemoryForget = false
     private var confirmingConversationClear = false
+    private var pendingTaskGoal: String = ""
 // Retry system: stores only failed supported actions.
 private var retryActions: List<AgentStep> = emptyList()
     private var pendingSpeech: String? = null
@@ -60,7 +61,7 @@ private val conversationHistory = mutableListOf<GeminiMessage>()
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
+            PowerManager.PARTIAL_WAKE_LOCK,mu
             "DNMark1:JarvisWakeLock"
         )
 
@@ -500,6 +501,7 @@ if (
     hasOpenCommand &&
     requestedApps.size >= 2
 ) {
+    pendingTaskGoal = question
     pendingActions = requestedApps.map {
         AgentStep(
             action = "open_app",
@@ -886,7 +888,10 @@ private fun handleConfirmation(rawText: String) {
     
 
 
-private fun executePlan(actions: List<AgentStep>) {
+private fun executePlan(
+    actions: List<AgentStep>,
+    goal: String = "Jarvis multi-step task"
+) {
     if (actions.isEmpty()) {
         speakAndResume("करने के लिए कोई काम नहीं मिला।")
         return
@@ -896,9 +901,9 @@ private fun executePlan(actions: List<AgentStep>) {
     val failedActions = mutableListOf<AgentStep>()
 
     val taskId = AgentTaskManager.start(
-        "Jarvis multi-step task",
-        actions.size
-    )
+    goal,
+    actions.size
+)
 
     fun finishPlan() {
                 if (AgentTaskManager.isCancelled(taskId)) {
