@@ -163,15 +163,14 @@ for (i in 0 until minOf(stepsJson.length(), 5)) {
     )
 }
 
-                            val plan = AgentPlan(
-                                goal = planJson.optString("goal"),
-                                steps = steps,
-                                requiresConfirmation =
-                                    planJson.optBoolean("requiresConfirmation"),
-                                confirmationReason =
-                                    planJson.optString("confirmationReason")
-                            )
-
+                            val plan = AgentPlanEngine.normalize(
+    goal = planJson.optString("goal"),
+    inputSteps = rawSteps,
+    confirmationRequired =
+        planJson.optBoolean("requiresConfirmation"),
+    confirmationReason =
+        planJson.optString("confirmationReason")
+)
                             onResult(
                                 GeminiResult(
                                     reply = reply,
