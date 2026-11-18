@@ -27,10 +27,12 @@ class AndroidCommandRecognizer(
 
     private var languageIndex = 0
     private var multilingual = false
+    private var confirmationMode = false
     private var finished = false
 
     fun start(language: String = "hi-IN") {
         multilingual = false
+        confirmationMode = false
         languageIndex = 0
         finished = false
         startInternal(language)
@@ -38,10 +40,58 @@ class AndroidCommandRecognizer(
 
     fun startMultilingual() {
         multilingual = true
+        confirmationMode = false
         languageIndex = preferredLanguageIndex
             .coerceIn(0, languages.lastIndex)
         finished = false
         startInternal(languages[languageIndex])
+    }
+
+    fun startConfirmation() {
+        multilingual = true
+        confirmationMode = true
+        languageIndex = 0
+        finished = false
+        startInternal(languages[languageIndex])
+    }
+
+    private fun isYesOrNo(value: String): Boolean {
+        val normalized = value.lowercase()
+            .replace(Regex("[.,!?;:।॥]+"), " ")
+            .trim()
+
+        val words = normalized.split(Regex("\\s+"))
+
+        val yes = setOf(
+            "हाँ", "हां", "जी", "yes", "yeah", "yep",
+            "haan", "han", "ha", "haanji", "hanji",
+            "okay", "ok", "bilkul", "confirm", "kardo",
+            "ହଁ"
+        )
+
+        val no = setOf(
+            "नहीं", "नही", "no", "nope", "nahi", "nahin",
+            "ନା", "ନାହିଁ", "ରଦ୍ଦ"
+        )
+
+        return words.any { it in yes || it in no }
+    }
+
+    private fun retryNextLanguage() {
+        if (finished) return
+
+        if (languageIndex < languages.lastIndex) {
+            languageIndex++
+            handler.postDelayed({
+                if (!finished) {
+                    startInternal(languages[languageIndex])
+                }
+            }, 350)
+        } else {
+            finishWithError(
+                "हाँ या नहीं समझ नहीं आया। कृपया Notification के बटन दबाएँ।"
+            )
+        }
     }
 
     private fun startInternal(language: String) {
@@ -78,7 +128,9 @@ class AndroidCommandRecognizer(
                     error == SpeechRecognizer.ERROR_NO_MATCH ||
                     error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
 
-                if (
+                if (confirmationMode && retryable) {
+                    retryNextLanguage()
+                } else if (
                     multilingual &&
                     retryable &&
                     languageIndex < languages.lastIndex
@@ -88,7 +140,7 @@ class AndroidCommandRecognizer(
                         if (!finished) {
                             startInternal(languages[languageIndex])
                         }
-                    }, 300)
+                    }, 350)
                 } else {
                     val message = when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH ->
@@ -113,19 +165,25 @@ class AndroidCommandRecognizer(
 
                 val matches = results?.getStringArrayList(
                     SpeechRecognizer.RESULTS_RECOGNITION
-                )
+                ).orEmpty()
 
-                val text = matches?.firstOrNull()?.trim().orEmpty()
+                val selected = if (confirmationMode) {
+                    matches.firstOrNull { isYesOrNo(it) }
+                } else {
+                    matches.firstOrNull { it.isNotBlank() }
+                }
 
-                if (text.isNotBlank()) {
+                if (!selected.isNullOrBlank()) {
                     if (multilingual) {
                         preferredLanguageIndex = languageIndex
                     }
 
                     finished = true
-                    onResult(text)
+                    onResult(selected.trim())
+                } else if (confirmationMode) {
+                    retryNextLanguage()
                 } else {
-                    onError(SpeechRecognizer.ERROR_NO_MATCH)
+                    finishWithError("आवाज़ समझ नहीं आई।")
                 }
             }
         })
@@ -142,7 +200,7 @@ class AndroidCommandRecognizer(
                 RecognizerIntent.EXTRA_PARTIAL_RESULTS,
                 false
             )
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
         }
 
