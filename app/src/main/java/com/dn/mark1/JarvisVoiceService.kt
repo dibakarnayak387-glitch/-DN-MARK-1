@@ -92,14 +92,16 @@ if (savedRetry != null) {
             return START_NOT_STICKY
         }
         
+val action = intent?.action
+
 if (
-    intent?.action == ACTION_CONFIRM_YES ||
-    intent?.action == ACTION_CONFIRM_NO
+    action == ACTION_CONFIRM_YES ||
+    action == ACTION_CONFIRM_NO
 ) {
     handler.post {
         if (awaitingConfirmation) {
             val answer = if (
-                intent.action == ACTION_CONFIRM_YES
+                action == ACTION_CONFIRM_YES
             ) "yes" else "no"
 
             handleConfirmation(answer)
@@ -274,6 +276,7 @@ if (confirmationMode) {
     commandRecognizer?.startConfirmation()
 } else {
     commandRecognizer?.startMultilingual()
+}
 }
 
     
