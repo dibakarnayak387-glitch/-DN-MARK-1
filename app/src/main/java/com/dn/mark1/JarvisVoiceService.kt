@@ -24,6 +24,12 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         const val ACTION_STOP = "com.dn.mark1.ACTION_STOP_JARVIS"
         const val ACTION_CANCEL_TASK =
     "com.dn.mark1.ACTION_CANCEL_TASK"
+        
+const val ACTION_CONFIRM_YES =
+    "com.dn.mark1.ACTION_CONFIRM_YES"
+const val ACTION_CONFIRM_NO =
+    "com.dn.mark1.ACTION_CONFIRM_NO"
+        
         private const val NOTIFICATION_ID = 101
         private const val CHANNEL_ID = "dn_jarvis_voice"
     }
@@ -85,6 +91,23 @@ if (savedRetry != null) {
             stopJarvis()
             return START_NOT_STICKY
         }
+        
+if (
+    intent?.action == ACTION_CONFIRM_YES ||
+    intent?.action == ACTION_CONFIRM_NO
+) {
+    handler.post {
+        if (awaitingConfirmation) {
+            val answer = if (
+                intent.action == ACTION_CONFIRM_YES
+            ) "yes" else "no"
+
+            handleConfirmation(answer)
+        }
+    }
+    return START_NOT_STICKY
+}
+
 
         serviceStopped = false
         if (intent?.action == ACTION_CANCEL_TASK) {
@@ -246,8 +269,13 @@ private fun startCommandListening() {
         }
     )
 
-   commandRecognizer?.startMultilingual()
+   
+if (confirmationMode) {
+    commandRecognizer?.startConfirmation()
+} else {
+    commandRecognizer?.startMultilingual()
 }
+
     
 private fun startWakeListening() {
     if (serviceStopped || processing || awaitingConfirmation) return
@@ -1399,12 +1427,49 @@ override fun onInit(status: Int) {
         cancelIntent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
+    
+val yesIntent = Intent(this, JarvisVoiceService::class.java)
+    .setAction(ACTION_CONFIRM_YES)
+
+val yesPendingIntent = PendingIntent.getService(
+    this,
+    104,
+    yesIntent,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+
+val noIntent = Intent(this, JarvisVoiceService::class.java)
+    .setAction(ACTION_CONFIRM_NO)
+
+val noPendingIntent = PendingIntent.getService(
+    this,
+    105,
+    noIntent,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+)
+
 
     return Notification.Builder(this, CHANNEL_ID)
         .setContentTitle("D.N. MARK 1")
         .setContentText(message)
         .setSmallIcon(android.R.drawable.ic_btn_speak_now)
         .setOngoing(true)
+        
+.apply {
+    if (awaitingConfirmation) {
+        addAction(
+            android.R.drawable.ic_media_play,
+            "YES",
+            yesPendingIntent
+        )
+        addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            "NO",
+            noPendingIntent
+        )
+    }
+}
+
         .addAction(
             android.R.drawable.ic_menu_close_clear_cancel,
             "Cancel Task",
